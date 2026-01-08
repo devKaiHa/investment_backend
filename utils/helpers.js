@@ -69,3 +69,13 @@ exports.sendEmail = async (options) => {
     console.error("Error sending email:", error);
   }
 };
+
+exports.normalizeBoolean = (v) => v === true || v === "true" || v === "1";
+
+exports.safeJsonParse = (value, fallback) => {
+  try {
+    return typeof value === "string" ? JSON.parse(value) : value;
+  } catch {
+    return fallback;
+  }
+};
