@@ -4,8 +4,9 @@ const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const asyncHandler = require("express-async-handler");
-const ClientCompany = require("../models/clientCompanyModel");
+const ClientCompanyModel = require("../models/clientCompanyModel");
 const { normalizeBoolean, safeJsonParse } = require("../utils/helpers");
+const clientRequest = require("../models/clientRequestModel");
 
 // Multer
 const storage = multer.memoryStorage();
@@ -19,7 +20,7 @@ exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
   const uploadDir = "uploads/ClientCompany";
   await fs.promises.mkdir(uploadDir, { recursive: true });
 
-  req.body.partnersIdDocuments = req.body.partnersIdDocuments || [];
+  // req.body.partnersIdDocuments = req.body.partnersIdDocuments || [];
 
   await Promise.all(
     req.files.map(async (file) => {
@@ -46,6 +47,13 @@ exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
           req.body.commercialRegistration = filename;
           break;
 
+        case "associationMemorandumIncorp":
+          req.body.associationMemorandumIncorp = [
+            ...(req.body.associationMemorandumIncorp || []),
+            filename,
+          ];
+          break;
+
         case "associationAndBylaws":
           req.body.associationAndBylaws = [
             ...(req.body.associationAndBylaws || []),
@@ -65,12 +73,13 @@ exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
           break;
 
         default:
-          if (file.fieldname.startsWith("partnersId_")) {
-            req.body.partnersIdDocuments.push({
-              title: req.body[`${file.fieldname}_key`] || "",
-              fileUrl: filename,
-            });
-          }
+          console.log("asd");
+        // if (file.fieldname.startsWith("partnersId_")) {
+        //   req.body.partnersIdDocuments.push({
+        //     title: req.body[`${file.fieldname}_key`] || "",
+        //     fileUrl: filename,
+        //   });
+        // }
       }
     })
   );
@@ -147,7 +156,7 @@ exports.createClientCompany = asyncHandler(async (req, res) => {
   }
 
   // Create
-  const company = await ClientCompany.create(req.body);
+  const company = await clientRequest.create(req.body);
 
   res.status(201).json({
     status: true,
@@ -180,8 +189,8 @@ exports.getAllClientCompanies = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const [companies, total] = await Promise.all([
-    ClientCompany.find(query).sort(sort).skip(skip).limit(Number(limit)),
-    ClientCompany.countDocuments(query),
+    ClientCompanyModel.find(query).sort(sort).skip(skip).limit(Number(limit)),
+    ClientCompanyModel.countDocuments(query),
   ]);
 
   res.status(200).json({
@@ -199,7 +208,7 @@ exports.getAllClientCompanies = asyncHandler(async (req, res) => {
 
 // Get One
 exports.getOneClientCompany = asyncHandler(async (req, res) => {
-  const company = await ClientCompany.findById(req.params.id);
+  const company = await ClientCompanyModel.findById(req.params.id);
 
   if (!company) {
     return res.status(404).json({
@@ -217,7 +226,57 @@ exports.getOneClientCompany = asyncHandler(async (req, res) => {
 
 // Update
 exports.updateClientCompany = asyncHandler(async (req, res) => {
-  const company = await ClientCompany.findById(req.params.id);
+  const { id } = req.params;
+
+  // PARSE COMPLEX FIELDS
+  const owners = parseJSON(req.body.owners, []);
+  const boardMembers = parseJSON(req.body.boardMembers, []);
+  const reqInvestAmount = parseJSON(req.body.reqInvestAmount, {
+    currency: "",
+    amount: "",
+  });
+  const targetMarketCountries = parseJSON(req.body.targetMarketCountries, []);
+
+  const legalDisclosures = {
+    havePendingLegalDisputes:
+      normalize(req.body.havePendingLegalDisputes) === "true",
+    havePriorFinViolation: normalize(req.body.havePriorFinViolation) === "true",
+    description: req.body.legalDisclosuresDesc || "",
+  };
+
+  // BUILD UPDATE PAYLOAD
+  const updatePayload = {
+    // primitive fields
+    fullLegalName: req.body.fullLegalName,
+    tradeName: req.body.tradeName,
+    legalStructure: req.body.legalStructure,
+    crn: req.body.crn,
+    registeringAuthority: req.body.registeringAuthority,
+    dateIncorporation: req.body.dateIncorporation,
+    governorate: req.body.governorate,
+    registeredLegalAddress: req.body.registeredLegalAddress,
+    phoneNumber: req.body.phoneNumber,
+    email: req.body.email,
+    website: req.body.website,
+
+    // parsed objects
+    owners,
+    boardMembers,
+    reqInvestAmount,
+    targetMarketCountries,
+    legalDisclosures,
+
+    // enums / booleans
+    targetMarkets: req.body.targetMarkets?.toUpperCase(),
+    haveInternalBylaws: normalize(req.body.haveInternalBylaws) === "true",
+  };
+
+  // UPDATE
+  const company = await ClientCompanyModel.findByIdAndUpdate(
+    id,
+    { $set: updatePayload },
+    { new: true, runValidators: true }
+  );
 
   if (!company) {
     return res.status(404).json({
@@ -226,22 +285,29 @@ exports.updateClientCompany = asyncHandler(async (req, res) => {
     });
   }
 
-  Object.assign(company, req.body);
-
-  const updatedCompany = await company.save();
-
   res.status(200).json({
     status: true,
     message: "Client company updated successfully",
-    data: updatedCompany,
+    data: company,
   });
 });
+
+const parseJSON = (value, fallback) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const normalize = (v) => (typeof v === "string" ? v.trim() : v);
 
 // Activate / Deactivate
 exports.clientCompanyStatus = asyncHandler(async (req, res) => {
   const active = req.body.status === "true";
 
-  const company = await ClientCompany.findById(req.params.id);
+  const company = await ClientCompanyModel.findById(req.params.id);
 
   if (!company) {
     return res.status(404).json({

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const clientCompanyModel = new mongoose.Schema(
+const clientRequestSchema = new mongoose.Schema(
   {
     // Company Information
     fullLegalName: { type: String, required: true },
@@ -45,6 +45,10 @@ const clientCompanyModel = new mongoose.Schema(
           position: { type: String, required: true },
         },
       ],
+      validate: {
+        validator: (v) => v.length >= 3,
+        message: "At least 3 board members are required",
+      },
     },
     haveInternalBylaws: { type: Boolean, default: false },
 
@@ -95,24 +99,25 @@ const clientCompanyModel = new mongoose.Schema(
     associationAndBylaws: [String], // multiple
     financialStatements: [String], // multiple
 
-    // partnersIdDocuments: [
-    //   {
-    //     title: String,
-    //     fileUrl: String,
-    //   },
-    // ],
+    partnersIdDocuments: [
+      {
+        title: String,
+        fileUrl: String,
+      },
+    ],
 
-    approvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee",
-    },
     // Status
     active: {
       type: Boolean,
-      default: true,
+      default: false,
     },
+    status: {
+      type: String,
+      default: "pending",
+    },
+    rejectionMessage: String,
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("ClientCompany", clientCompanyModel);
+module.exports = mongoose.model("ClientRequest", clientRequestSchema);
