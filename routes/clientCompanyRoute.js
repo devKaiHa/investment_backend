@@ -7,6 +7,8 @@ const {
   getOneClientCompany,
   updateClientCompany,
   clientCompanyStatus,
+  getAllClientRequests,
+  getOneCompany,
 } = require("../services/clientCompanyService");
 
 const clientCompanyRoute = express.Router();
@@ -20,6 +22,8 @@ clientCompanyRoute
   )
   .get(getAllClientCompanies);
 
+clientCompanyRoute.route("/request").get(getAllClientRequests);
+
 clientCompanyRoute
   .route("/:id")
   .get(getOneClientCompany)
@@ -28,6 +32,8 @@ clientCompanyRoute
     processClientCompanyFiles,
     updateClientCompany
   );
+
+clientCompanyRoute.route("/company/:id").get(getOneCompany);
 
 clientCompanyRoute.patch("/:id/status", clientCompanyStatus);
 

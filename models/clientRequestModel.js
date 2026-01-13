@@ -45,10 +45,6 @@ const clientRequestSchema = new mongoose.Schema(
           position: { type: String, required: true },
         },
       ],
-      validate: {
-        validator: (v) => v.length >= 3,
-        message: "At least 3 board members are required",
-      },
     },
     haveInternalBylaws: { type: Boolean, default: false },
 

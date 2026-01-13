@@ -206,9 +206,60 @@ exports.getAllClientCompanies = asyncHandler(async (req, res) => {
   });
 });
 
+// Get All
+exports.getAllClientRequests = asyncHandler(async (req, res) => {
+  const { keyword, page = 1, limit = 10, sort = "-createdAt" } = req.query;
+
+  const query = { active: "false" };
+
+  if (keyword?.trim()) {
+    query.$or = [
+      { fullLegalName: new RegExp(keyword, "i") },
+      { tradeName: new RegExp(keyword, "i") },
+      { email: new RegExp(keyword, "i") },
+      { phoneNumber: new RegExp(keyword, "i") },
+    ];
+  }
+
+  const skip = (page - 1) * limit;
+
+  const [companies, total] = await Promise.all([
+    clientRequest.find(query).sort(sort).skip(skip).limit(Number(limit)),
+    clientRequest.countDocuments(query),
+  ]);
+
+  res.status(200).json({
+    status: true,
+    message: "success",
+    pagination: {
+      totalItems: total,
+      totalPages: Math.ceil(total / limit),
+      page: Number(page),
+      limit: Number(limit),
+    },
+    data: companies,
+  });
+});
 // Get One
-exports.getOneClientCompany = asyncHandler(async (req, res) => {
+exports.getOneCompany = asyncHandler(async (req, res) => {
   const company = await ClientCompanyModel.findById(req.params.id);
+
+  if (!company) {
+    return res.status(404).json({
+      status: false,
+      message: "Client company not found",
+    });
+  }
+
+  res.status(200).json({
+    status: true,
+    message: "success",
+    data: company,
+  });
+});
+
+exports.getOneClientCompany = asyncHandler(async (req, res) => {
+  const company = await clientRequest.findById(req.params.id);
 
   if (!company) {
     return res.status(404).json({
@@ -272,7 +323,7 @@ exports.updateClientCompany = asyncHandler(async (req, res) => {
   };
 
   // UPDATE
-  const company = await ClientCompanyModel.findByIdAndUpdate(
+  const company = await clientRequest.findByIdAndUpdate(
     id,
     { $set: updatePayload },
     { new: true, runValidators: true }
@@ -305,32 +356,86 @@ const normalize = (v) => (typeof v === "string" ? v.trim() : v);
 
 // Activate / Deactivate
 exports.clientCompanyStatus = asyncHandler(async (req, res) => {
-  const active = req.body.status === "true";
+  const { id } = req.params;
+  const { status, msg } = req.body; // "approved" | "rejected"
 
-  const company = await ClientCompanyModel.findById(req.params.id);
-
-  if (!company) {
-    return res.status(404).json({
-      status: false,
-      message: "Client company not found",
-    });
-  }
-
-  if (company.active === active) {
+  // VALIDATE STATUS
+  if (!["approved", "rejected"].includes(status)) {
     return res.status(400).json({
       status: false,
-      message: `Client company is already ${active ? "active" : "inactive"}`,
+      message: "Invalid status value",
     });
   }
 
-  company.active = active;
-  await company.save();
+  // FETCH REQUEST
+  const request = await clientRequest.findById(id);
 
+  if (!request) {
+    return res.status(404).json({
+      status: false,
+      message: "Client request not found",
+    });
+  }
+
+  const exists = await ClientCompanyModel.findOne({ crn: request.crn });
+
+  if (exists) {
+    return res.status(400).json({
+      status: false,
+      message: "Company already exists",
+    });
+  }
+
+  // PREVENT DOUBLE ACTION
+  if (request.status !== "pending") {
+    return res.status(400).json({
+      status: false,
+      message: `Request already ${request.status}`,
+    });
+  }
+
+  // IF REJECTED
+  if (status === "rejected") {
+    request.status = "rejected";
+    request.active = false;
+    request.rejectionMessage = msg || "";
+
+    await request.save();
+
+    return res.status(200).json({
+      status: true,
+      message: "Client request rejected",
+    });
+  }
+
+  // IF APPROVED → CREATE COMPANY
+  const companyData = request.toObject();
+
+  // ❌ REMOVE REQUEST-ONLY FIELDS
+  delete companyData._id;
+  delete companyData.status;
+  delete companyData.rejectionMessage;
+  delete companyData.createdAt;
+  delete companyData.updatedAt;
+  delete companyData.__v;
+
+  // CREATE COMPANY
+  const company = await ClientCompanyModel.create({
+    ...companyData,
+    active: true,
+    approvedBy: req.user?._id, // optional
+  });
+
+  // DELETE REQUEST AFTER SUCCESSFUL APPROVAL
+  await clientRequest.findByIdAndDelete(request._id);
+
+  // RESPONSE
   res.status(200).json({
     status: true,
-    message: `Client company ${
-      active ? "activated" : "deactivated"
-    } successfully`,
-    data: { id: company._id, active },
+    message: "Client company approved and created successfully",
+    data: {
+      requestId: request._id,
+      companyId: company._id,
+    },
   });
 });
