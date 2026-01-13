@@ -46,12 +46,6 @@ exports.login = asyncHandler(async (req, res, next) => {
 
 // @desc   Make sure the user is logged in sys
 exports.protect = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   let token;
   if (
     req.headers.authorization &&
@@ -71,9 +65,6 @@ exports.protect = asyncHandler(async (req, res, next) => {
 
       const curentUser = await employeeModel.findOne({
         _id: decoded.userId,
-        company: {
-          $elemMatch: { companyId: companyId },
-        },
       });
 
       if (!curentUser) {

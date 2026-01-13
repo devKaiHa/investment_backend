@@ -10,9 +10,11 @@ const {
   getAllClientRequests,
   getOneCompany,
 } = require("../services/clientCompanyService");
+const authService = require("../services/authService");
 
 const clientCompanyRoute = express.Router();
 
+clientCompanyRoute.use(authService.protect);
 clientCompanyRoute
   .route("/")
   .post(

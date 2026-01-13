@@ -408,10 +408,10 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
     });
   }
 
-  // IF APPROVED → CREATE COMPANY
+  // CREATE COMPANY
   const companyData = request.toObject();
 
-  // ❌ REMOVE REQUEST-ONLY FIELDS
+  // REMOVE REQUEST-ONLY FIELDS
   delete companyData._id;
   delete companyData.status;
   delete companyData.rejectionMessage;
@@ -423,7 +423,7 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
   const company = await ClientCompanyModel.create({
     ...companyData,
     active: true,
-    approvedBy: req.user?._id, // optional
+    approvedBy: req.user?._id,
   });
 
   // DELETE REQUEST AFTER SUCCESSFUL APPROVAL

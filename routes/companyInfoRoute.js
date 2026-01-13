@@ -17,12 +17,6 @@ companyInfoRoute
   .get(getCompanyInfo);
 companyInfoRoute
   .route("/:id")
-  .put(
-    authService.protect,
-    authService.protect,
-    uploadCompanyLogo,
-    resizerLogo,
-    updataCompanyInfo
-  );
+  .put(authService.protect, uploadCompanyLogo, resizerLogo, updataCompanyInfo);
 
 module.exports = companyInfoRoute;
