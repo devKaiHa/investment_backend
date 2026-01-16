@@ -184,7 +184,7 @@ exports.getAllInvestors = asyncHandler(async (req, res, next) => {
 // @desc Get one Investor
 // @route GET /api/Investor/:id
 // @access Private
-exports.getOneInvestor = asyncHandler(async (req, res, next) => {
+exports.getOneInvestor = asyncHandler(async (req, res) => {
   const companyId = req.query.companyId;
 
   if (!companyId) {
@@ -192,7 +192,11 @@ exports.getOneInvestor = asyncHandler(async (req, res, next) => {
   }
 
   try {
-    const investor = await Investor.findOne({ companyId, _id: req.params.id });
+    // FETCH INVESTOR
+    const investor = await Investor.findOne({
+      companyId,
+      _id: req.params.id,
+    });
 
     if (!investor) {
       return res.status(404).json({
@@ -201,22 +205,12 @@ exports.getOneInvestor = asyncHandler(async (req, res, next) => {
       });
     }
 
-    const company = await investmentCompaniesModel.findOne({ companyId });
-    if (!company) {
-      return res.status(404).json({
-        status: false,
-        message: "Company not found",
-      });
-    }
-
-    const ownershipPercentage = company.totalShares
-      ? ((investor.ownedShares || 0) / company.totalShares) * 100
-      : 0;
-
+    // PAGINATION
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    // FETCH TRANSACTIONS
     const totalTransactions = await shareTransactionSchema.countDocuments({
       companyId,
       investorId: req.params.id,
@@ -230,32 +224,12 @@ exports.getOneInvestor = asyncHandler(async (req, res, next) => {
       .populate("counterpartyId", "fullName email")
       .populate("investorId", "fullName email");
 
-    // Calculate total invested, current value, and profit
-    let totalInvested = 0;
-    let currentValue = 0;
-
-    transactions.forEach((t) => {
-      const invested = t.purchaseValue || t.shares * t.sharePrice;
-      const current = t.shares * company.sharePrice;
-      totalInvested += invested;
-      currentValue += current;
-    });
-
-    const totalProfit = currentValue - totalInvested;
-    const profitPercentage =
-      totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
-
+    // RESPONSE (RAW VALUES ONLY)
     res.status(200).json({
       status: true,
       message: "success",
       data: {
         ...investor.toObject(),
-        ownershipPercentage,
-        totalInvested,
-        currentValue,
-        totalProfit,
-        profitPercentage,
-        currentSharePrice: company.sharePrice,
       },
       transactions: {
         total: totalTransactions,
@@ -264,15 +238,6 @@ exports.getOneInvestor = asyncHandler(async (req, res, next) => {
         totalPages: Math.ceil(totalTransactions / limit),
         items: transactions.map((t) => ({
           ...t.toObject(),
-          currentValue: t.shares * company.sharePrice,
-          profit:
-            t.shares * company.sharePrice -
-            (t.purchaseValue || t.shares * t.sharePrice),
-          profitPercentage:
-            ((t.shares * company.sharePrice -
-              (t.purchaseValue || t.shares * t.sharePrice)) /
-              (t.purchaseValue || t.shares * t.sharePrice)) *
-            100,
         })),
       },
     });

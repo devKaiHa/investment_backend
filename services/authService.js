@@ -15,7 +15,7 @@ exports.login = asyncHandler(async (req, res, next) => {
       .select("+password");
 
     if (!user) {
-      return next(new ApiError("Incorrect email", 401));
+      return next(new ApiError("No such user with that email", 401));
     }
 
     const passwordMatch = await bcrypt.compare(
@@ -23,7 +23,7 @@ exports.login = asyncHandler(async (req, res, next) => {
       user.password
     );
     if (!passwordMatch) {
-      return next(new ApiError("Incorrect Password", 401));
+      return next(new ApiError("Incorrect password", 401));
     }
 
     if (!user.active) {
@@ -55,7 +55,7 @@ exports.protect = asyncHandler(async (req, res, next) => {
   }
 
   if (!token) {
-    return next(new ApiError("Not login", 401));
+    return next(new ApiError("The token has expired or is invalid", 401));
   } else {
     try {
       //2- Verify token (no change happens, expired token)
@@ -68,7 +68,7 @@ exports.protect = asyncHandler(async (req, res, next) => {
       });
 
       if (!curentUser) {
-        return next(new ApiError("The user does not exit", 404));
+        return next(new ApiError("No such user found", 404));
       }
       req.user = curentUser;
       next();

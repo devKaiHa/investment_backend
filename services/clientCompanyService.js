@@ -5,7 +5,11 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const asyncHandler = require("express-async-handler");
 const ClientCompanyModel = require("../models/clientCompanyModel");
-const { normalizeBoolean, safeJsonParse } = require("../utils/helpers");
+const {
+  normalizeBoolean,
+  safeJsonParse,
+  sendEmail,
+} = require("../utils/helpers");
 const clientRequest = require("../models/clientRequestModel");
 
 // Multer
@@ -402,6 +406,12 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
 
     await request.save();
 
+    await sendEmail({
+      email: request.email,
+      subject: "Investment Account Rejected!",
+      message: request.rejectionMessage,
+    });
+
     return res.status(200).json({
       status: true,
       message: "Client request rejected",
@@ -424,6 +434,12 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
     ...companyData,
     active: true,
     approvedBy: req.user?._id,
+  });
+
+  await sendEmail({
+    email: company.email,
+    subject: "Investment Account Approved!",
+    message: `Hello ${company.fullLegalName}, your company's application was approved`,
   });
 
   // DELETE REQUEST AFTER SUCCESSFUL APPROVAL
