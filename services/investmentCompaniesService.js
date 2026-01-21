@@ -81,15 +81,9 @@ exports.createInvestmentCompanies = asyncHandler(async (req, res, next) => {
 // @route GET /api/investmentCompanies
 // @access Private
 exports.getAllInvestmentCompaniess = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
-    const investCompanies = await investmentCompanies.find({ companyId });
-
+    const investCompanies = await investmentCompanies.find();
+    console.log("asd");
     res.status(200).json({
       status: true,
       message: "success",
