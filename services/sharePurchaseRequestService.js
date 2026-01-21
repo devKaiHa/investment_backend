@@ -5,14 +5,7 @@ const sharePurchaseRequestModel = require("../models/sharePurchaseRequestModel")
 // @route POST /api/purchaseRequest
 // @access Private
 exports.createPurchaseRequest = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
-    req.body.companyId = companyId;
     const purchaseRequest = await sharePurchaseRequestModel.create(req.body);
 
     // Respond with success message and created investor data
@@ -84,7 +77,6 @@ exports.getAllInvestorPurchaseRequest = asyncHandler(async (req, res, next) => {
 // @access Private
 exports.getAllPurchaseRequest = asyncHandler(async (req, res) => {
   const {
-    companyId,
     page = 1,
     limit = 10,
     sort = "-createdAt",
@@ -92,14 +84,9 @@ exports.getAllPurchaseRequest = asyncHandler(async (req, res) => {
     keyword,
   } = req.query;
 
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   const skip = (page - 1) * limit;
 
   const matchStage = {
-    companyId,
     ...(type && { type }),
   };
 
@@ -161,18 +148,9 @@ exports.getAllPurchaseRequest = asyncHandler(async (req, res) => {
 // @route GET /api/purchaseRequests/:id
 // @access Private
 exports.getOnePurchaseRequest = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
     const request = await sharePurchaseRequestModel
-      .findOne({
-        _id: req.params.id,
-        companyId,
-      })
+      .findById(req.params.id)
       .populate({
         path: "investorId",
         select: "_id fullName phoneNumber",
@@ -208,7 +186,7 @@ exports.updatePurchaseRequest = asyncHandler(async (req, res, next) => {
     req.body,
     {
       new: true,
-    }
+    },
   );
   if (!purchaseRequest) {
     return res.status(404).json({
@@ -225,17 +203,10 @@ exports.updatePurchaseRequest = asyncHandler(async (req, res, next) => {
 // @route DELETE /api/purchaseRequests/:id
 // @access Private
 exports.deletePurchaseRequest = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
-    const deletedRequest = await sharePurchaseRequestModel.findOneAndDelete({
-      _id: req.params.id,
-      companyId,
-    });
+    const deletedRequest = await sharePurchaseRequestModel.findByIdAndDelete(
+      req.params.id,
+    );
 
     if (!deletedRequest) {
       return res.status(404).json({

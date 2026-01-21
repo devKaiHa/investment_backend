@@ -50,7 +50,7 @@ exports.resizeInvestorImages = asyncHandler(async (req, res, next) => {
           fileUrl: filename,
         });
       }
-    })
+    }),
   );
 
   next();
@@ -60,13 +60,7 @@ exports.resizeInvestorImages = asyncHandler(async (req, res, next) => {
 // @route POST /api/Investor
 // @access Private
 exports.createInvestor = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
-    req.body.companyId = companyId;
     const isFounder = req.body.isFounder === "true";
     req.body.isFounder = isFounder;
     req.body.deletable = !isFounder;
@@ -106,15 +100,10 @@ exports.createInvestor = asyncHandler(async (req, res, next) => {
 // @route GET /api/investor
 // @access Private
 exports.getAllInvestors = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   const { keyword, page = 1, limit = 10, sort } = req.query;
 
   try {
-    const query = { companyId };
+    const query = {};
 
     if (keyword && keyword.trim() !== "") {
       query.$or = [
@@ -136,7 +125,7 @@ exports.getAllInvestors = asyncHandler(async (req, res, next) => {
         .limit(parseInt(limit)),
 
       Investor.countDocuments(query),
-      investmentCompaniesModel.findOne({ companyId }),
+      investmentCompaniesModel.findOne(),
     ]);
 
     // if (!company) {
@@ -185,18 +174,9 @@ exports.getAllInvestors = asyncHandler(async (req, res, next) => {
 // @route GET /api/Investor/:id
 // @access Private
 exports.getOneInvestor = asyncHandler(async (req, res) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
     // FETCH INVESTOR
-    const investor = await Investor.findOne({
-      companyId,
-      _id: req.params.id,
-    });
+    const investor = await Investor.findById(req.params.id);
 
     if (!investor) {
       return res.status(404).json({
@@ -212,12 +192,11 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
 
     // FETCH TRANSACTIONS
     const totalTransactions = await shareTransactionSchema.countDocuments({
-      companyId,
       investorId: req.params.id,
     });
 
     const transactions = await shareTransactionSchema
-      .find({ companyId, investorId: req.params.id })
+      .find({ investorId: req.params.id })
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 })
@@ -254,7 +233,6 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
 // @route PUT /api/investorShares/:id
 // @access Private
 exports.updateInvestorShares = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
   const {
     shares,
     type,
@@ -263,12 +241,6 @@ exports.updateInvestorShares = asyncHandler(async (req, res, next) => {
     purchaseValue,
     description,
   } = req.body;
-
-  if (!companyId) {
-    return res
-      .status(400)
-      .json({ status: false, message: "companyId is required" });
-  }
 
   if (!shares || isNaN(shares) || shares <= 0) {
     return res
@@ -296,7 +268,7 @@ exports.updateInvestorShares = asyncHandler(async (req, res, next) => {
 
   try {
     // Actor = the one performing the action (buyer if type="buy", seller if type="sell")
-    const actor = await Investor.findOne({ _id: req.params.id, companyId });
+    const actor = await Investor.findById(req.params.id);
     if (!actor) {
       return res
         .status(404)
@@ -304,10 +276,7 @@ exports.updateInvestorShares = asyncHandler(async (req, res, next) => {
     }
 
     // Counterparty = the other side of the trade
-    const counterparty = await Investor.findOne({
-      _id: counterpartyId,
-      companyId,
-    });
+    const counterparty = await Investor.findById(counterpartyId);
     if (!counterparty) {
       return res
         .status(404)
@@ -357,7 +326,6 @@ exports.updateInvestorShares = asyncHandler(async (req, res, next) => {
         sharePrice: Number(sharePrice),
         purchaseValue,
         description,
-        companyId,
       },
       {
         investorId: sellerId,
@@ -367,7 +335,6 @@ exports.updateInvestorShares = asyncHandler(async (req, res, next) => {
         sharePrice: Number(sharePrice),
         purchaseValue,
         description,
-        companyId,
       },
     ]);
 
@@ -391,8 +358,8 @@ const storageDisk = multer.diskStorage({
     const ext = file.mimetype.startsWith("image/")
       ? ".webp"
       : file.mimetype === "application/pdf"
-      ? ".pdf"
-      : "";
+        ? ".pdf"
+        : "";
 
     const safeFieldname = file.fieldname.replace(/[^a-zA-Z0-9_-]/g, "_");
     const filename = `Investor-${uuidv4()}-${Date.now()}-${safeFieldname}${ext}`;
@@ -489,7 +456,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
             }
           }
           return shouldKeep;
-        }
+        },
       );
     }
 
@@ -507,7 +474,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           if (existingInvestor.profileImage) {
             try {
               fs.unlinkSync(
-                path.join("uploads/Investor", existingInvestor.profileImage)
+                path.join("uploads/Investor", existingInvestor.profileImage),
               );
             } catch (err) {
               console.warn("Failed to delete old profile image:", err.message);
@@ -516,7 +483,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           existingInvestor.profileImage = file.filename;
         } else {
           const index = existingInvestor.attachments.findIndex(
-            (att) => att.key === key
+            (att) => att.key === key,
           );
           const newFile = { key, fileUrl: file.filename };
 
@@ -526,8 +493,8 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
               fs.unlinkSync(
                 path.join(
                   "uploads/Investor",
-                  existingInvestor.attachments[index].fileUrl
-                )
+                  existingInvestor.attachments[index].fileUrl,
+                ),
               );
             } catch (err) {
               console.warn("Failed to delete old attachment:", err.message);
@@ -560,18 +527,9 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
 // @route DELETE /api/Investor/:id
 // @access Private
 exports.deleteInvestor = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
     // Find the investor first
-    const investor = await Investor.findOne({
-      companyId,
-      _id: req.params.id,
-    });
+    const investor = await Investor.findById(req.params.id);
 
     if (!investor) {
       return res.status(404).json({

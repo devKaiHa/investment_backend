@@ -36,8 +36,8 @@ exports.investorLogin = asyncHandler(async (req, res, next) => {
       return next(
         new ApiError(
           "Account already logged in on another device. Please log out first.",
-          403
-        )
+          403,
+        ),
       );
     }
 
@@ -73,7 +73,7 @@ exports.investorRegister = asyncHandler(async (req, res, next) => {
 
   if (user) {
     return next(
-      new ApiError("An account with that phone number already exists", 500)
+      new ApiError("An account with that phone number already exists", 500),
     );
   }
 
@@ -85,7 +85,6 @@ exports.investorRegister = asyncHandler(async (req, res, next) => {
     phoneNumber: req.body.phoneNumber,
     active: true,
     password: hashedPassword,
-    companyId: req.body.companyId,
   });
 
   const token = createToken(user);

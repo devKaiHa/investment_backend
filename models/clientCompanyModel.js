@@ -105,7 +105,13 @@ const clientCompanyModel = new mongoose.Schema(
     associationMemorandumIncorp: [String], // multiple
     associationAndBylaws: [String], // multiple
     financialStatements: [String], // multiple
-
+    bankQR: [
+      {
+        name: { type: String, default: "" },
+        accountNumber: { type: String, default: "" },
+        qrCode: { type: String, default: "" },
+      },
+    ],
     // partnersIdDocuments: [
     //   {
     //     title: String,

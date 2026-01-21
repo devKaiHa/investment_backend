@@ -6,14 +6,7 @@ const investmentCompanies = require("../models/investmentCompaniesModel");
 // @route POST /api/investorShares
 // @access Private
 exports.createinvestorShares = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
-    req.body.companyId = companyId;
     const investorShare = await InvestorShares.create(req.body);
 
     // Respond with success message and created investor data
@@ -36,16 +29,10 @@ exports.createinvestorShares = asyncHandler(async (req, res, next) => {
 // @route GET /api/investorShares
 // @access Private
 exports.getAllinvestorShares = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   const { keyword, page = 1, limit = 10, sort = "-createdAt" } = req.query;
 
   try {
-    let query = { companyId };
+    let query = {};
 
     if (keyword && keyword.trim() !== "") {
       const matchingCompanies = await investmentCompanies
@@ -146,17 +133,11 @@ exports.getOneInvestorShares = asyncHandler(async (req, res, next) => {
 // @route PUT /api/investorShares/:id
 // @access Private
 exports.updateInvestorSharesModel = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
-    const updatedinvestorShares = await InvestorShares.findOneAndUpdate(
-      { companyId, _id: req.params.id },
+    const updatedinvestorShares = await InvestorShares.findByIdAndUpdate(
+      req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedinvestorShares) {
@@ -184,17 +165,10 @@ exports.updateInvestorSharesModel = asyncHandler(async (req, res, next) => {
 // @route DELETE /api/investorShares/:id
 // @access Private
 exports.deleteInvestorShares = asyncHandler(async (req, res, next) => {
-  const companyId = req.query.companyId;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
-
   try {
-    const deletedinvestorShares = await InvestorShares.findOneAndDelete({
-      companyId,
-      _id: req.params.id,
-    });
+    const deletedinvestorShares = await InvestorShares.findByIdAndDelete(
+      req.params.id,
+    );
 
     if (!deletedinvestorShares) {
       return res.status(404).json({

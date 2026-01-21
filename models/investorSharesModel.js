@@ -15,9 +15,8 @@ const shareTransactionSchema = new mongoose.Schema(
     sharePrice: Number,
     purchaseValue: Number,
     description: { type: String, default: "" },
-    companyId: String,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("ShareTransaction", shareTransactionSchema);
