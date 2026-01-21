@@ -9,6 +9,7 @@ const {
   clientCompanyStatus,
   getAllClientRequests,
   getOneCompany,
+  updateInvestInfo,
 } = require("../services/clientCompanyService");
 const authService = require("../services/authService");
 
@@ -20,7 +21,7 @@ clientCompanyRoute
   .post(
     uploadClientCompanyFiles,
     processClientCompanyFiles,
-    createClientCompany
+    createClientCompany,
   )
   .get(getAllClientCompanies);
 
@@ -32,11 +33,12 @@ clientCompanyRoute
   .put(
     uploadClientCompanyFiles,
     processClientCompanyFiles,
-    updateClientCompany
+    updateClientCompany,
   );
 
 clientCompanyRoute.route("/company/:id").get(getOneCompany);
 
 clientCompanyRoute.patch("/:id/status", clientCompanyStatus);
+clientCompanyRoute.patch("/:id/investInfo", updateInvestInfo);
 
 module.exports = clientCompanyRoute;

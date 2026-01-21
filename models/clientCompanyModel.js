@@ -28,12 +28,16 @@ const clientCompanyModel = new mongoose.Schema(
         fullName: { type: String, required: true },
         nationality: { type: String, required: true },
         nationalId: { type: String, required: true },
+        isSelling: { type: Boolean, default: false },
+        sellingAmount: { type: Number, default: 0 },
+        startedSellingOn: { type: String, default: null },
         ownershipPercentage: {
           type: Number,
           required: true,
           min: 0,
           max: 100,
         },
+        _id: false,
       },
     ],
 
@@ -43,6 +47,7 @@ const clientCompanyModel = new mongoose.Schema(
         {
           name: { type: String, required: true },
           position: { type: String, required: true },
+          _id: false,
         },
       ],
     },
@@ -74,6 +79,12 @@ const clientCompanyModel = new mongoose.Schema(
     useOfProceeds: String,
     investmentHorizon: String,
     exitStrategy: String,
+    sharePrice: { type: Number, default: 0 },
+    initialShares: { type: Number, default: 0 },
+    availableShares: { type: Number, default: 0 },
+    minInvestAmount: { type: Number, default: 0 },
+    subscriptionStart: { type: String, default: Date.now },
+    subscriptionEnd: { type: String, default: Date.now },
 
     // Legal Disclosures
     legalDisclosures: {
@@ -112,7 +123,7 @@ const clientCompanyModel = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("ClientCompany", clientCompanyModel);

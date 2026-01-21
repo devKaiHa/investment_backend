@@ -11,6 +11,7 @@ const {
   sendEmail,
 } = require("../utils/helpers");
 const clientRequest = require("../models/clientRequestModel");
+const investorModel = require("../models/investorModel");
 
 // Multer
 const storage = multer.memoryStorage();
@@ -85,7 +86,7 @@ exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
         //   });
         // }
       }
-    })
+    }),
   );
 
   next();
@@ -110,10 +111,10 @@ exports.createClientCompany = asyncHandler(async (req, res) => {
   req.body.active = normalizeBoolean(req.body.active);
   req.body.haveInternalBylaws = normalizeBoolean(req.body.haveInternalBylaws);
   req.body.havePendingLegalDisputes = normalizeBoolean(
-    req.body.havePendingLegalDisputes
+    req.body.havePendingLegalDisputes,
   );
   req.body.havePriorFinViolation = normalizeBoolean(
-    req.body.havePriorFinViolation
+    req.body.havePriorFinViolation,
   );
 
   // Parse JSON fields
@@ -131,7 +132,7 @@ exports.createClientCompany = asyncHandler(async (req, res) => {
 
   req.body.targetMarketCountries = safeJsonParse(
     req.body.targetMarketCountries,
-    []
+    [],
   );
 
   // Validations
@@ -244,6 +245,7 @@ exports.getAllClientRequests = asyncHandler(async (req, res) => {
     data: companies,
   });
 });
+
 // Get One
 exports.getOneCompany = asyncHandler(async (req, res) => {
   const company = await ClientCompanyModel.findById(req.params.id);
@@ -330,7 +332,7 @@ exports.updateClientCompany = asyncHandler(async (req, res) => {
   const company = await clientRequest.findByIdAndUpdate(
     id,
     { $set: updatePayload },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   );
 
   if (!company) {
@@ -363,7 +365,7 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status, msg } = req.body; // "approved" | "rejected"
 
-  // VALIDATE STATUS
+  // Validate the status
   if (!["approved", "rejected"].includes(status)) {
     return res.status(400).json({
       status: false,
@@ -371,7 +373,7 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
     });
   }
 
-  // FETCH REQUEST
+  // Get the request
   const request = await clientRequest.findById(id);
 
   if (!request) {
@@ -390,7 +392,7 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
     });
   }
 
-  // PREVENT DOUBLE ACTION
+  // Prevent double action
   if (request.status !== "pending") {
     return res.status(400).json({
       status: false,
@@ -398,7 +400,7 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
     });
   }
 
-  // IF REJECTED
+  // When rejecting
   if (status === "rejected") {
     request.status = "rejected";
     request.active = false;
@@ -418,10 +420,10 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
     });
   }
 
-  // CREATE COMPANY
+  // Create company section
   const companyData = request.toObject();
 
-  // REMOVE REQUEST-ONLY FIELDS
+  // Remove request fields
   delete companyData._id;
   delete companyData.status;
   delete companyData.rejectionMessage;
@@ -429,12 +431,28 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
   delete companyData.updatedAt;
   delete companyData.__v;
 
-  // CREATE COMPANY
+  // Create the company
   const company = await ClientCompanyModel.create({
     ...companyData,
     active: true,
     approvedBy: req.user?._id,
   });
+
+  if (Array.isArray(company.owners) && company.owners.length > 0) {
+    const founders = company.owners.map((owner) => ({
+      fullName: owner.fullName,
+      deletable: false,
+      ownedShares: [
+        {
+          isFounder: true,
+          percentage: owner.ownershipPercentage || 0,
+          company: company._id,
+        },
+      ],
+    }));
+
+    await investorModel.insertMany(founders);
+  }
 
   await sendEmail({
     email: company.email,
@@ -442,10 +460,9 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
     message: `Hello ${company.fullLegalName}, your company's application was approved`,
   });
 
-  // DELETE REQUEST AFTER SUCCESSFUL APPROVAL
+  // Delete request after approval
   await clientRequest.findByIdAndDelete(request._id);
 
-  // RESPONSE
   res.status(200).json({
     status: true,
     message: "Client company approved and created successfully",
@@ -453,5 +470,140 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
       requestId: request._id,
       companyId: company._id,
     },
+  });
+});
+
+exports.updateInvestInfo = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const {
+    sharePrice,
+    initialShares,
+    availableShares,
+    minInvestAmount,
+    subscriptionStart,
+    subscriptionEnd,
+    owners,
+  } = req.body;
+
+  if (!id) {
+    return res.status(400).json({
+      status: false,
+      message: "No ID provided",
+    });
+  }
+
+  const company = await ClientCompanyModel.findById(id);
+
+  if (!company) {
+    return res.status(404).json({
+      status: false,
+      message: "Company not found",
+    });
+  }
+
+  if (!company.active) {
+    return res.status(400).json({
+      status: false,
+      message: "Company isn't active",
+    });
+  }
+
+  // VALIDATIONS
+  if (initialShares !== undefined && Number(initialShares) <= 0) {
+    return res.status(400).json({
+      status: false,
+      message: "Initial shares must be greater than zero",
+    });
+  }
+
+  if (sharePrice !== undefined && Number(sharePrice) <= 0) {
+    return res.status(400).json({
+      status: false,
+      message: "Share price must be greater than zero",
+    });
+  }
+
+  if (
+    subscriptionStart &&
+    subscriptionEnd &&
+    new Date(subscriptionEnd) <= new Date(subscriptionStart)
+  ) {
+    return res.status(400).json({
+      status: false,
+      message: "Subscription end date must be after start date",
+    });
+  }
+
+  if (Array.isArray(owners)) {
+    for (const o of owners) {
+      if (!o.isSelling) continue;
+
+      const ownership = Number(o.ownershipPercentage);
+      const selling = Number(o.sellingAmount);
+
+      if (isNaN(ownership) || isNaN(selling)) {
+        return res.status(400).json({
+          status: false,
+          message: "Invalid ownership or selling percentage",
+        });
+      }
+
+      if (selling <= 0 || selling > 100) {
+        return res.status(400).json({
+          status: false,
+          message: "Selling percentage must be between 1 and 100",
+        });
+      }
+
+      const remainingPercentage = ownership * (1 - selling / 100);
+
+      if (remainingPercentage < 10) {
+        return res.status(400).json({
+          status: false,
+          message: `${o.fullName} must retain at least 10% of the company`,
+        });
+      }
+    }
+  }
+
+  if (Array.isArray(owners)) {
+    company.owners = owners.map((o) => {
+      const prevOwner = company.owners.find(
+        (po) => po.nationalId === o.nationalId,
+      );
+
+      const wasSelling = Boolean(prevOwner?.isSelling);
+      const isSellingNow = Boolean(o.isSelling);
+
+      return {
+        fullName: o.fullName,
+        nationality: o.nationality,
+        nationalId: o.nationalId,
+        ownershipPercentage: o.ownershipPercentage,
+        isSelling: isSellingNow,
+        sellingAmount: o.sellingAmount,
+
+        // Set when isSelling = false changed to true
+        startedSellingOn:
+          !wasSelling && isSellingNow
+            ? new Date().toISOString()
+            : (prevOwner?.startedSellingOn ?? null),
+      };
+    });
+  }
+
+  if (initialShares !== undefined) company.initialShares = initialShares;
+  if (sharePrice !== undefined) company.sharePrice = sharePrice;
+  if (availableShares !== undefined) company.availableShares = availableShares;
+  if (minInvestAmount !== undefined) company.minInvestAmount = minInvestAmount;
+  if (subscriptionStart) company.subscriptionStart = subscriptionStart;
+  if (subscriptionEnd) company.subscriptionEnd = subscriptionEnd;
+
+  await company.save();
+
+  res.status(200).json({
+    status: true,
+    message: "Company investment info updated successfully",
+    data: company,
   });
 });

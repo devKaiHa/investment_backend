@@ -27,15 +27,22 @@ const investorSchema = new mongoose.Schema(
     },
     profileImage: String,
     deletable: { type: Boolean, default: true },
-    isFounder: { type: Boolean, default: false },
-    ownedShares: { type: Number, default: 0 },
+    ownedShares: [
+      {
+        amount: { type: Number, default: 0 },
+        company: { type: mongoose.Schema.Types.ObjectId, ref: "ClientCompany" },
+        isFounder: { type: Boolean, default: false },
+        _id: false,
+      },
+    ],
     companyId: String,
     active: { type: Boolean, default: true },
     activeSessionId: { type: String, default: null },
     sessionStartedAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
 const setImageURL = (doc) => {
   if (doc.passportImage) {
     doc.passportImage = `${process.env.BASE_URL}/Investor/${doc.passportImage}`;
