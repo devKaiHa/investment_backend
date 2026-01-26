@@ -90,7 +90,8 @@ const clientCompanyModel = new mongoose.Schema(
     legalDisclosures: {
       havePendingLegalDisputes: { type: Boolean, default: false },
       havePriorFinViolation: { type: Boolean, default: false },
-      description: String,
+      PendingLitigationDesc: String,
+      FinancialJudgmentsDesc: String,
       files: [String],
     },
 
@@ -129,7 +130,7 @@ const clientCompanyModel = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("ClientCompany", clientCompanyModel);

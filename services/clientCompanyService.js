@@ -18,6 +18,16 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 exports.uploadClientCompanyFiles = upload.any();
 
+const ensureObject = (val) => {
+  if (!val) return {};
+  if (typeof val === "object") return val;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return {};
+  }
+};
+
 // File Processing
 exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
   if (!req.files?.length) return next();
@@ -72,21 +82,20 @@ exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
             filename,
           ];
           break;
-
+        case "legalDisclosuresFiles": {
+          const legal = ensureObject(req.body.legalDisclosures);
+          legal.files = [...(legal.files || []), filename];
+          req.body.legalDisclosures = legal; // keep as object for later save
+          break;
+        }
         case "legalRepAuthority":
           req.body.legalRepAuthority = filename;
           break;
 
         default:
           console.log("asd");
-        // if (file.fieldname.startsWith("partnersId_")) {
-        //   req.body.partnersIdDocuments.push({
-        //     title: req.body[`${file.fieldname}_key`] || "",
-        //     fileUrl: filename,
-        //   });
-        // }
       }
-    }),
+    })
   );
 
   next();
@@ -111,10 +120,10 @@ exports.createClientCompany = asyncHandler(async (req, res) => {
   req.body.active = normalizeBoolean(req.body.active);
   req.body.haveInternalBylaws = normalizeBoolean(req.body.haveInternalBylaws);
   req.body.havePendingLegalDisputes = normalizeBoolean(
-    req.body.havePendingLegalDisputes,
+    req.body.havePendingLegalDisputes
   );
   req.body.havePriorFinViolation = normalizeBoolean(
-    req.body.havePriorFinViolation,
+    req.body.havePriorFinViolation
   );
 
   // Parse JSON fields
@@ -132,7 +141,7 @@ exports.createClientCompany = asyncHandler(async (req, res) => {
 
   req.body.targetMarketCountries = safeJsonParse(
     req.body.targetMarketCountries,
-    [],
+    []
   );
 
   // Validations
@@ -332,7 +341,7 @@ exports.updateClientCompany = asyncHandler(async (req, res) => {
   const company = await clientRequest.findByIdAndUpdate(
     id,
     { $set: updatePayload },
-    { new: true, runValidators: true },
+    { new: true, runValidators: true }
   );
 
   if (!company) {
@@ -569,7 +578,7 @@ exports.updateInvestInfo = asyncHandler(async (req, res) => {
   if (Array.isArray(owners)) {
     company.owners = owners.map((o) => {
       const prevOwner = company.owners.find(
-        (po) => po.nationalId === o.nationalId,
+        (po) => po.nationalId === o.nationalId
       );
 
       const wasSelling = Boolean(prevOwner?.isSelling);
@@ -587,7 +596,7 @@ exports.updateInvestInfo = asyncHandler(async (req, res) => {
         startedSellingOn:
           !wasSelling && isSellingNow
             ? new Date().toISOString()
-            : (prevOwner?.startedSellingOn ?? null),
+            : prevOwner?.startedSellingOn ?? null,
       };
     });
   }
