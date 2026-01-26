@@ -81,6 +81,7 @@ exports.getAllPurchaseRequest = asyncHandler(async (req, res) => {
     limit = 10,
     sort = "-createdAt",
     type,
+    status,
     keyword,
   } = req.query;
 
@@ -88,6 +89,7 @@ exports.getAllPurchaseRequest = asyncHandler(async (req, res) => {
 
   const matchStage = {
     ...(type && { type }),
+    ...(status && { status }),
   };
 
   const searchStage =
@@ -104,6 +106,7 @@ exports.getAllPurchaseRequest = asyncHandler(async (req, res) => {
   const pipeline = [
     { $match: matchStage },
 
+    // 🔹 Populate investor
     {
       $lookup: {
         from: "investors",
@@ -113,6 +116,43 @@ exports.getAllPurchaseRequest = asyncHandler(async (req, res) => {
       },
     },
     { $unwind: "$investor" },
+
+    // 🔹 Populate seller with selected fields only
+    {
+      $lookup: {
+        from: "clientcompanies",
+        let: { sellerId: "$seller" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$_id", "$$sellerId"] },
+            },
+          },
+          {
+            $project: {
+              fullLegalName: 1,
+              tradeName: 1,
+              phoneNumber: 1,
+              email: 1,
+              targetMarkets: 1,
+              targetMarketCountries: 1,
+              sharePrice: 1,
+              minInvestAmount: 1,
+              subscriptionStart: 1,
+              subscriptionEnd: 1,
+              bankQR: 1,
+            },
+          },
+        ],
+        as: "seller",
+      },
+    },
+    {
+      $unwind: {
+        path: "$seller",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
 
     { $match: searchStage },
 

@@ -9,6 +9,7 @@ const multerStorage = multer.memoryStorage();
 const bcrypt = require("bcryptjs");
 const { default: axios } = require("axios");
 const { generatePassword, sendEmail } = require("../utils/helpers");
+const mongoose = require("mongoose");
 
 const multerFilter = function (req, file, cb) {
   if (file.mimetype.startsWith("image")) {
@@ -61,7 +62,7 @@ exports.createCompanyInfo = asyncHandler(async (req, res, next) => {
     try {
       await axios.post(
         `${process.env.JOBS_URL}api/auth/createEmployee`,
-        payload
+        payload,
       );
     } catch (err) {
       console.error("Failed to sync employee:", err.message);
@@ -75,7 +76,7 @@ exports.createCompanyInfo = asyncHandler(async (req, res, next) => {
   } else {
     await employeeModel.findOneAndUpdate(
       { email: req.body.email },
-      { companyId: companyInfo._id }
+      { companyId: companyInfo._id },
     );
   }
 
@@ -106,7 +107,7 @@ exports.updataCompanyInfo = asyncHandler(async (req, res, next) => {
     const companyInfo = await CompanyInfnoModel.findByIdAndUpdate(
       { _id: id },
       req.body,
-      { new: true }
+      { new: true },
     );
     if (!companyInfo) {
       return next(new ApiError(`There is no company with this id ${id}`, 404));
@@ -119,5 +120,131 @@ exports.updataCompanyInfo = asyncHandler(async (req, res, next) => {
     }
   } catch (error) {
     console.log(error);
+  }
+});
+
+exports.deleteCompanyBank = asyncHandler(async (req, res) => {
+  const { id, bankQRId } = req.params;
+
+  if (!bankQRId) {
+    return res.status(400).json({
+      status: false,
+      message: "companyId and bankQRId are required",
+    });
+  }
+
+  const updatedCompany = await CompanyInfnoModel.findOneAndUpdate(
+    { _id: id },
+    {
+      $pull: {
+        bankQR: { _id: new mongoose.Types.ObjectId(bankQRId) },
+      },
+    },
+    { new: true },
+  );
+
+  if (!updatedCompany) {
+    return res.status(404).json({
+      status: false,
+      message: "Investment company or Bank QR not found",
+    });
+  }
+
+  res.status(200).json({
+    status: true,
+    message: "Bank QR deleted successfully",
+  });
+});
+
+exports.updateCompanyBank = asyncHandler(async (req, res) => {
+  const { id, bankQRId } = req.params;
+  const { companyId } = req.query;
+
+  if (!companyId) {
+    return res.status(400).json({ message: "companyId is required" });
+  }
+
+  const update = {};
+
+  if (req.body.name !== undefined) update["bankQR.$.name"] = req.body.name;
+
+  if (req.body.accountNumber !== undefined)
+    update["bankQR.$.accountNumber"] = req.body.accountNumber;
+
+  if (req.body.qrCode !== undefined)
+    update["bankQR.$.qrCode"] = req.body.qrCode;
+
+  const updatedCompany = await CompanyInfnoModel.findOneAndUpdate(
+    {
+      _id: id,
+      "bankQR._id": new mongoose.Types.ObjectId(bankQRId),
+    },
+    { $set: update },
+    { new: true },
+  );
+
+  if (!updatedCompany) {
+    return res.status(404).json({
+      status: false,
+      message: "Bank account not found",
+    });
+  }
+
+  res.status(200).json({
+    status: true,
+    message: "Bank account updated successfully",
+  });
+});
+
+exports.addCompanyBankQR = asyncHandler(async (req, res) => {
+  try {
+    const { name, accountNumber, qrCode } = req.body;
+    const { id } = req.params;
+
+    if (!name || !accountNumber) {
+      return res.status(400).json({
+        message: "Name and account number are required",
+      });
+    }
+
+    if (!qrCode) {
+      return res.status(400).json({
+        message: "QR code image is required",
+      });
+    }
+
+    const company = await CompanyInfnoModel.findById(id);
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const exists = company.bankQR.some(
+      (b) => b.accountNumber === accountNumber,
+    );
+
+    if (exists) {
+      return res.status(409).json({
+        message: "Bank account already exists",
+      });
+    }
+
+    const newBankQR = {
+      name,
+      accountNumber,
+      qrCode: qrCode || null,
+    };
+
+    company.bankQR.push(newBankQR);
+    await company.save();
+
+    res.status(201).json({
+      message: "Bank account added successfully",
+      data: newBankQR,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Error while adding bank account",
+    });
   }
 });

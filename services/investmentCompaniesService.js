@@ -83,7 +83,6 @@ exports.createInvestmentCompanies = asyncHandler(async (req, res, next) => {
 exports.getAllInvestmentCompaniess = asyncHandler(async (req, res, next) => {
   try {
     const investCompanies = await investmentCompanies.find();
-    console.log("asd");
     res.status(200).json({
       status: true,
       message: "success",

@@ -14,8 +14,15 @@ const companyIfnoSchema = new mongoose.Schema(
       type: String,
       default: `defaultLogo.png`,
     },
+    bankQR: [
+      {
+        name: { type: String, default: "" },
+        accountNumber: { type: String, default: "" },
+        qrCode: { type: String, default: "" },
+      },
+    ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("companyinfo", companyIfnoSchema);
