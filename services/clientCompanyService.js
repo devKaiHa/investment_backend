@@ -18,6 +18,20 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 exports.uploadClientCompanyFiles = upload.any();
 
+const ensureArray = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 const ensureObject = (val) => {
   if (!val) return {};
   if (typeof val === "object") return val;
@@ -28,79 +42,68 @@ const ensureObject = (val) => {
   }
 };
 
-// File Processing
 exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
   if (!req.files?.length) return next();
 
   const uploadDir = "uploads/ClientCompany";
   await fs.promises.mkdir(uploadDir, { recursive: true });
 
-  // req.body.partnersIdDocuments = req.body.partnersIdDocuments || [];
-
   await Promise.all(
     req.files.map(async (file) => {
       const isImage = file.mimetype.startsWith("image/");
       const isPdf = file.mimetype === "application/pdf";
-
-      if (!isImage && !isPdf) {
-        throw new Error("Unsupported file type");
-      }
+      if (!isImage && !isPdf) throw new Error("Unsupported file type");
 
       const ext = isImage ? ".webp" : ".pdf";
       const filename = `ClientCompany-${uuidv4()}${ext}`;
       const uploadPath = path.join(uploadDir, filename);
 
-      if (isImage) {
+      if (isImage)
         await sharp(file.buffer).webp({ quality: 75 }).toFile(uploadPath);
-      } else {
-        await fs.promises.writeFile(uploadPath, file.buffer);
-      }
+      else await fs.promises.writeFile(uploadPath, file.buffer);
 
-      // Field Mapping
       switch (file.fieldname) {
         case "commercialRegistration":
           req.body.commercialRegistration = filename;
           break;
 
-        case "associationMemorandumIncorp":
-          req.body.associationMemorandumIncorp = [
-            ...(req.body.associationMemorandumIncorp || []),
-            filename,
-          ];
-          break;
-
-        case "associationAndBylaws":
-          req.body.associationAndBylaws = [
-            ...(req.body.associationAndBylaws || []),
-            filename,
-          ];
-          break;
-
-        case "financialStatements":
-          req.body.financialStatements = [
-            ...(req.body.financialStatements || []),
-            filename,
-          ];
-          break;
-        case "legalDisclosuresFiles": {
-          const legal = ensureObject(req.body.legalDisclosures);
-          legal.files = [...(legal.files || []), filename];
-          req.body.legalDisclosures = legal; // keep as object for later save
-          break;
-        }
         case "legalRepAuthority":
           req.body.legalRepAuthority = filename;
           break;
 
+        case "associationMemorandumIncorp": {
+          const arr = ensureArray(req.body.associationMemorandumIncorp);
+          req.body.associationMemorandumIncorp = [...arr, filename];
+          break;
+        }
+
+        case "associationAndBylaws": {
+          const arr = ensureArray(req.body.associationAndBylaws);
+          req.body.associationAndBylaws = [...arr, filename];
+          break;
+        }
+
+        case "financialStatements": {
+          const arr = ensureArray(req.body.financialStatements);
+          req.body.financialStatements = [...arr, filename];
+          break;
+        }
+
+        case "legalDisclosuresFiles": {
+          const legal = ensureObject(req.body.legalDisclosures);
+          legal.files = [...(legal.files || []), filename];
+          req.body.legalDisclosures = legal; // keep as object/string OK
+          break;
+        }
+
         default:
-          console.log("asd");
+          break;
       }
     })
   );
 
   next();
 });
-
 // Create Company
 exports.createClientCompany = asyncHandler(async (req, res) => {
   // Normalize strings / enums
@@ -303,16 +306,31 @@ exports.updateClientCompany = asyncHandler(async (req, res) => {
   });
   const targetMarketCountries = parseJSON(req.body.targetMarketCountries, []);
 
-  const legalDisclosures = {
-    havePendingLegalDisputes:
-      normalize(req.body.havePendingLegalDisputes) === "true",
-    havePriorFinViolation: normalize(req.body.havePriorFinViolation) === "true",
-    description: req.body.legalDisclosuresDesc || "",
-  };
+  // ✅ FIX: legalDisclosures comes as JSON string/object in req.body.legalDisclosures
+  const legalDisclosures = parseJSON(req.body.legalDisclosures, {
+    files: [],
+    havePendingLegalDisputes: false,
+    havePriorFinViolation: false,
+    PendingLitigationDesc: "",
+    FinancialJudgmentsDesc: "",
+  });
+
+  // ✅ Parse files arrays (they may be array already from process middleware)
+  const financialStatements = parseJSON(
+    req.body.financialStatements,
+    undefined
+  );
+  const associationMemorandumIncorp = parseJSON(
+    req.body.associationMemorandumIncorp,
+    undefined
+  );
+  const associationAndBylaws = parseJSON(
+    req.body.associationAndBylaws,
+    undefined
+  );
 
   // BUILD UPDATE PAYLOAD
   const updatePayload = {
-    // primitive fields
     fullLegalName: req.body.fullLegalName,
     tradeName: req.body.tradeName,
     legalStructure: req.body.legalStructure,
@@ -325,19 +343,41 @@ exports.updateClientCompany = asyncHandler(async (req, res) => {
     email: req.body.email,
     website: req.body.website,
 
-    // parsed objects
     owners,
     boardMembers,
     reqInvestAmount,
     targetMarketCountries,
     legalDisclosures,
 
-    // enums / booleans
     targetMarkets: req.body.targetMarkets?.toUpperCase(),
     haveInternalBylaws: normalize(req.body.haveInternalBylaws) === "true",
   };
 
-  // UPDATE
+  // ✅ Single file fields (only set if provided)
+  if (
+    req.body.commercialRegistration &&
+    req.body.commercialRegistration !== "null"
+  ) {
+    updatePayload.commercialRegistration = req.body.commercialRegistration;
+  }
+  if (req.body.legalRepAuthority && req.body.legalRepAuthority !== "null") {
+    updatePayload.legalRepAuthority = req.body.legalRepAuthority;
+  }
+
+  // ✅ Array file fields (only set if provided)
+  if (Array.isArray(req.body.financialStatements)) {
+    updatePayload.financialStatements =
+      req.body.financialStatements.filter(Boolean);
+  }
+  if (Array.isArray(req.body.associationMemorandumIncorp)) {
+    updatePayload.associationMemorandumIncorp =
+      req.body.associationMemorandumIncorp.filter(Boolean);
+  }
+  if (Array.isArray(req.body.associationAndBylaws)) {
+    updatePayload.associationAndBylaws =
+      req.body.associationAndBylaws.filter(Boolean);
+  }
+
   const company = await clientRequest.findByIdAndUpdate(
     id,
     { $set: updatePayload },
@@ -345,10 +385,9 @@ exports.updateClientCompany = asyncHandler(async (req, res) => {
   );
 
   if (!company) {
-    return res.status(404).json({
-      status: false,
-      message: "Client company not found",
-    });
+    return res
+      .status(404)
+      .json({ status: false, message: "Client company not found" });
   }
 
   res.status(200).json({

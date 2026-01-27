@@ -79,7 +79,8 @@ const clientRequestSchema = new mongoose.Schema(
     legalDisclosures: {
       havePendingLegalDisputes: { type: Boolean, default: false },
       havePriorFinViolation: { type: Boolean, default: false },
-      description: String,
+      PendingLitigationDesc: String,
+      FinancialJudgmentsDesc: String,
       files: [String],
     },
 
