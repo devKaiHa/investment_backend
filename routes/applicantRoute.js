@@ -1,7 +1,7 @@
 const express = require("express");
 const {
   updateApplicantProfile,
-  submitForReview,
+  updateApplicantStatus,
   getAllApplicants,
   getOneApplicant,
 } = require("../services/applicantService");
@@ -10,7 +10,7 @@ const applicantRoute = express.Router();
 
 applicantRoute.route("/").get(getAllApplicants);
 applicantRoute.route("/:id").get(getOneApplicant);
-applicantRoute.route("/review/:id").patch(submitForReview);
+applicantRoute.route("/review/:id").patch(updateApplicantStatus);
 applicantRoute.route("/profile/:id").patch(updateApplicantProfile);
 
 module.exports = applicantRoute;

@@ -2,8 +2,8 @@ const Applicant = require("../models/applicantModel");
 const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/apiError");
 
-exports.updateApplicantProfile = asyncHandler(async (req, res) => {
-  const applicant = await Applicant.findOne({ authUserId: req.params.id });
+exports.updateApplicantProfile = asyncHandler(async (req, res, next) => {
+  const applicant = await Applicant.findById(req.params.id);
 
   if (!applicant) return next(new ApiError("No user found", 404));
 
@@ -13,18 +13,29 @@ exports.updateApplicantProfile = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Updated successfully", data: applicant });
 });
 
-exports.submitForReview = asyncHandler(async (req, res) => {
-  const applicant = await Applicant.findOne({ authUserId: req.params.id });
+exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
+  const applicant = await Applicant.findById(req.params.id);
+  const { reviewStatus, msg } = req.body;
+
+  if (!["approved", "rejected"].includes(reviewStatus)) {
+    return res.status(400).json({
+      status: false,
+      message: "Invalid status value",
+    });
+  }
 
   if (!applicant) return next(new ApiError("No user found", 404));
 
-  applicant.reviewStatus = "pending";
+  applicant.reviewStatus = reviewStatus;
+  applicant.rejectionReason = msg;
+
+  if (reviewStatus === "approved") applicant.rejectionReason = null;
   await applicant.save();
 
-  res.status(200).json({ message: "Request sent successfully" });
+  res.status(200).json({ message: "Status updated successfully" });
 });
 
-exports.getAllApplicants = asyncHandler(async (req, res) => {
+exports.getAllApplicants = asyncHandler(async (req, res, next) => {
   const { keyword, page = 1, limit = 10, sort } = req.query;
 
   try {
@@ -73,7 +84,7 @@ exports.getAllApplicants = asyncHandler(async (req, res) => {
   }
 });
 
-exports.getOneApplicant = asyncHandler(async (req, res) => {
+exports.getOneApplicant = asyncHandler(async (req, res, next) => {
   try {
     const applicant = await Applicant.findById(req.params.id);
 
