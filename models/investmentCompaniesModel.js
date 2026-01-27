@@ -1,5 +1,11 @@
 const mongoose = require("mongoose");
 
+// ============================
+// ============================
+// DEPRECATED, KEPT FOR REFERENCE
+// ============================
+// ============================
+
 const investmentCompaniesSchema = new mongoose.Schema(
   {
     companyName: String,
@@ -32,7 +38,7 @@ const investmentCompaniesSchema = new mongoose.Schema(
     ],
     companyId: String,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Middleware to set image URL
@@ -53,5 +59,5 @@ investmentCompaniesSchema.post("save", (doc) => {
 
 module.exports = mongoose.model(
   "investmentCompanies",
-  investmentCompaniesSchema
+  investmentCompaniesSchema,
 );

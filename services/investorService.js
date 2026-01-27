@@ -4,11 +4,11 @@ const shareTransactionSchema = require("../models/investorSharesModel");
 const { v4: uuidv4 } = require("uuid");
 const sharp = require("sharp");
 const bcrypt = require("bcryptjs");
-const investmentCompaniesModel = require("../models/investmentCompaniesModel");
 const multer = require("multer");
 const fs = require("fs");
 const { generatePassword, sendEmail } = require("../utils/helpers");
 const { default: mongoose } = require("mongoose");
+const applicantModel = require("../models/applicantModel");
 
 //for creating
 const storage = multer.memoryStorage();
@@ -169,7 +169,12 @@ exports.getAllInvestors = asyncHandler(async (req, res) => {
 exports.getOneInvestor = asyncHandler(async (req, res) => {
   try {
     // FETCH INVESTOR
-    const investor = await Investor.findById(req.params.id);
+    let investor;
+    if (req.body.role === "investor") {
+      investor = await Investor.findById(req.params.id);
+    } else {
+      investor = await applicantModel.findById(req.params.id);
+    }
 
     if (!investor) {
       return res.status(404).json({
@@ -393,7 +398,12 @@ exports.processInvestorFiles = asyncHandler(async (req, res, next) => {
 // @access Private
 exports.updateInvestor = asyncHandler(async (req, res, next) => {
   try {
-    const existingInvestor = await Investor.findById(req.params.id);
+    let existingInvestor;
+    if (req.body.role === "investor") {
+      existingInvestor = await Investor.findById(req.params.id);
+    } else {
+      existingInvestor = await applicantModel.findById(req.params.id);
+    }
 
     if (!existingInvestor) {
       return res.status(404).json({

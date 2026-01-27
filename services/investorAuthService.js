@@ -1,116 +1,131 @@
-const { default: slugify } = require("slugify");
 const investorModel = require("../models/investorModel");
-const { createToken } = require("../utils/helpers");
 const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/apiError");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const AuthUser = require("../models/AuthUserModel");
+const Applicant = require("../models/applicantModel");
+const AuthUserModel = require("../models/AuthUserModel");
+const { default: slugify } = require("slugify");
 
 const SESSION_MAX_AGE = 1000 * 60 * 60 * 24;
 
-exports.investorLogin = asyncHandler(async (req, res, next) => {
-  const user = await investorModel.findOne({
-    phoneNumber: req.body.phoneNumber,
+const signToken = (user, sessionId) =>
+  jwt.sign({ userId: user._id, sessionId }, process.env.JWT_SECRET_KEY);
+
+exports.investorRegister = asyncHandler(async (req, res, next) => {
+  const { phone, password, fullName } = req.body;
+
+  const exists = await AuthUser.findOne({ phone });
+  if (exists) return next(new ApiError("Phone already registered", 400));
+
+  const hashed = await bcrypt.hash(password, 12);
+
+  const user = await AuthUser.create({ phone, password: hashed });
+
+  const profile = await Applicant.create({
+    authUserId: user._id,
+    fullName,
+    slug: slugify(fullName),
+    phone,
   });
 
-  if (!user) {
-    return next(new ApiError("No account found with that phone number", 404));
-  }
-
-  const passwordMatch = await bcrypt.compare(req.body.password, user.password);
-
-  if (!passwordMatch) {
-    return next(new ApiError("Incorrect Password", 401));
-  }
-
-  if (!user.active) {
-    return next(new ApiError("The account is not active", 401));
-  }
-
-  // AUTO-EXPIRE CHECK
-  if (user.activeSessionId && user.sessionStartedAt) {
-    const sessionAge = Date.now() - new Date(user.sessionStartedAt).getTime();
-
-    if (sessionAge < SESSION_MAX_AGE) {
-      return next(
-        new ApiError(
-          "Account already logged in on another device. Please log out first.",
-          403,
-        ),
-      );
-    }
-
-    // Session expired → clean it
-    user.activeSessionId = null;
-    user.sessionStartedAt = null;
-  }
-
-  // Create new session
   const sessionId = crypto.randomUUID();
-
   user.activeSessionId = sessionId;
   user.sessionStartedAt = new Date();
   await user.save();
 
-  const token = createToken(user, sessionId);
+  const token = signToken(profile, sessionId);
 
-  const userObj = user.toObject();
-  delete userObj.password;
+  res.status(201).json({ profile, user, token, role: "applicant" });
+});
 
+exports.investorLogin = asyncHandler(async (req, res, next) => {
+  const { phone, password } = req.body;
+
+  // Auth
+  const authUser = await AuthUser.findOne({ phone });
+  if (!authUser) return next(new ApiError("No user found", 404));
+
+  const passMatch = await bcrypt.compare(password, authUser.password);
+  if (!passMatch) return next(new ApiError("Invalid credentials", 401));
+
+  if (authUser.activeSessionId) {
+    const age = Date.now() - new Date(authUser.sessionStartedAt).getTime();
+    if (age < SESSION_MAX_AGE)
+      return next(new ApiError("Already logged in", 403));
+  }
+
+  // Create session
+  const sessionId = crypto.randomUUID();
+  authUser.activeSessionId = sessionId;
+  authUser.sessionStartedAt = new Date();
+  await authUser.save();
+
+  // Load profile
+  const investor = await investorModel.findOne({ authUserId: authUser._id });
+  const applicant = !investor
+    ? await Applicant.findOne({ authUserId: authUser._id })
+    : null;
+
+  if (!investor && !applicant) {
+    return next(new ApiError("User profile not found", 500));
+  }
+
+  // Sanitize auth user
+  const authUserSafe = authUser.toObject();
+  delete authUserSafe.password;
+  delete authUserSafe.activeSessionId;
+  delete authUserSafe.sessionStartedAt;
+
+  // Response
   res.status(200).json({
     status: true,
-    user: userObj,
-    token,
+    token: signToken(authUser, sessionId),
+    role: investor ? "investor" : "applicant",
+    user: authUserSafe,
+    profile: investor || applicant,
   });
 });
 
-exports.investorRegister = asyncHandler(async (req, res, next) => {
-  let user;
-  user = await investorModel.findOne({
-    phoneNumber: req.body.phoneNumber,
+exports.approveApplicant = asyncHandler(async (req, res) => {
+  const applicant = await Applicant.findById(req.params.id);
+
+  if (!applicant) return next(new ApiError("No user found", 404));
+
+  const investor = await investorModel.create({
+    authUserId: applicant.authUserId,
+    fullName: applicant.fullName,
+    latinName: applicant.latinName,
+    slug: applicant.slug,
+    email: applicant.email,
+    birthDate: applicant.birthDate,
+    attachments: applicant.attachments,
+    profileImage: applicant.profileImage,
   });
 
-  if (user) {
-    return next(
-      new ApiError("An account with that phone number already exists", 500),
-    );
-  }
+  await Applicant.deleteOne({ _id: applicant._id });
 
-  req.body.slug = slugify(req.body.fullName);
-  const hashedPassword = await bcrypt.hash(req.body.password, 10);
-  user = await investorModel.create({
-    fullName: req.body.fullName,
-    slug: req.body.slug,
-    phoneNumber: req.body.phoneNumber,
-    active: true,
-    password: hashedPassword,
-  });
+  res.status(200).json({ message: "Approve success", data: investor });
+});
 
-  const token = createToken(user);
-  const userObj = user.toObject();
-  delete userObj.password;
+exports.rejectApplicant = asyncHandler(async (req, res) => {
+  const applicant = await Applicant.findById(req.params.id);
 
-  res.status(201).json({ user: userObj, token });
+  applicant.reviewStatus = "rejected";
+  applicant.rejectionReason = req.body.rejectionReason;
+  await applicant.save();
+
+  res.status(200).json({ message: "Reject success" });
 });
 
 exports.protectInvestor = asyncHandler(async (req, res, next) => {
-  let token;
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    token = req.headers.authorization.split(" ")[1];
-  }
-
-  if (!token) {
-    return next(new ApiError("Not authenticated", 401));
-  }
-
   const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+  const user = await AuthUser.findById(decoded.userId);
 
-  const user = await investorModel.findById(decoded.userId);
+  const investor = await investorModel.findOne({ authUserId: user._id });
+  if (!investor) return next(new ApiError("Not investor", 403));
 
   if (!user || !user.activeSessionId || !user.sessionStartedAt) {
     return next(new ApiError("Session expired. Please log in again.", 401));
@@ -133,17 +148,22 @@ exports.protectInvestor = asyncHandler(async (req, res, next) => {
   }
 
   req.user = user;
+  req.investor = investor;
   next();
 });
 
 exports.investorLogout = asyncHandler(async (req, res) => {
-  if (req.user) {
-    req.user.activeSessionId = null;
-    req.user.sessionStartedAt = null;
-    await req.user.save();
+  const { id } = req.params;
+  if (!id) {
+    res.status(500).json({ message: "ID is required" });
   }
 
-  res.status(200).json({
-    message: "Logged out successfully",
-  });
+  const authUser = await AuthUserModel.findById(id);
+  if (authUser) {
+    authUser.activeSessionId = null;
+    authUser.sessionStartedAt = null;
+    await authUser.save();
+  }
+
+  res.status(200).json({ message: "Logged out successfully" });
 });

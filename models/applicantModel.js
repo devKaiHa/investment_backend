@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const investorSchema = new mongoose.Schema(
+const applicantSchema = new mongoose.Schema(
   {
     authUserId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -14,30 +14,24 @@ const investorSchema = new mongoose.Schema(
     email: String,
     phone: String,
     birthDate: String,
-    ibanNumbers: [
-      {
-        bankName: String,
-        iban: String,
-      },
-    ],
+
+    reviewStatus: {
+      type: String,
+      enum: ["draft", "pending", "approved", "rejected"],
+      default: "draft",
+    },
+    rejectionReason: String,
     attachments: [
       {
         key: String,
         fileUrl: String,
       },
     ],
+
     profileImage: String,
     deletable: { type: Boolean, default: true },
-    ownedShares: [
-      {
-        amount: { type: Number, default: 0 },
-        company: { type: mongoose.Schema.Types.ObjectId, ref: "ClientCompany" },
-        isFounder: { type: Boolean, default: false },
-        _id: false,
-      },
-    ],
   },
   { timestamps: true },
 );
 
-module.exports = mongoose.model("investors", investorSchema);
+module.exports = mongoose.model("applicant", applicantSchema);

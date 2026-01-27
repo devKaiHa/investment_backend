@@ -25,8 +25,8 @@ investorRoute
   .get(getAllInvestors);
 
 investorRoute.route("/auth/login").post(investorLogin);
-investorRoute.route("/auth/logout").post(protectInvestor, investorLogout);
 investorRoute.route("/auth/register").post(investorRegister);
+investorRoute.route("/auth/logout/:id").post(investorLogout);
 
 investorRoute
   .route("/:id")
