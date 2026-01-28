@@ -10,7 +10,7 @@ const {
   addCompanyBankQR,
 } = require("../services/companyInfoService");
 
-const authService = require("../services/authService");
+const authService = require("../services/auth/authService");
 const {
   uploadInvestmentCompaniesImages,
   resizeInvestmentCompaniesImages,
@@ -31,7 +31,7 @@ companyInfoRoute
   .put(
     uploadInvestmentCompaniesImages,
     resizeInvestmentCompaniesImages,
-    updateCompanyBank,
+    updateCompanyBank
   )
   .delete(deleteCompanyBank);
 
@@ -40,6 +40,6 @@ companyInfoRoute
   .post(
     uploadInvestmentCompaniesImages,
     resizeInvestmentCompaniesImages,
-    addCompanyBankQR,
+    addCompanyBankQR
   );
 module.exports = companyInfoRoute;

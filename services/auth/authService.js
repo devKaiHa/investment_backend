@@ -1,9 +1,9 @@
 const asyncHandler = require("express-async-handler");
-const ApiError = require("../utils/apiError");
+const ApiError = require("../../utils/apiError");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const employeeModel = require("../models/employeeModel");
-const { createToken } = require("../utils/helpers");
+const employeeModel = require("../../models/employeeModel");
+const { createToken } = require("../../utils/helpers");
 
 // @desc      Login
 // @route     POST /api/auth/login

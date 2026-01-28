@@ -11,7 +11,7 @@ const {
   getOneCompany,
   updateInvestInfo,
 } = require("../services/clientCompanyService");
-const authService = require("../services/authService");
+const authService = require("../services/auth/authService");
 
 const clientCompanyRoute = express.Router();
 
@@ -21,7 +21,7 @@ clientCompanyRoute
     authService.protect,
     uploadClientCompanyFiles,
     processClientCompanyFiles,
-    createClientCompany,
+    createClientCompany
   )
   .get(getAllClientCompanies);
 
@@ -36,7 +36,7 @@ clientCompanyRoute
     authService.protect,
     uploadClientCompanyFiles,
     processClientCompanyFiles,
-    updateClientCompany,
+    updateClientCompany
   );
 
 clientCompanyRoute.route("/company/:id").get(getOneCompany);

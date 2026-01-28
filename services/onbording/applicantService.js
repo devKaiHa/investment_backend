@@ -1,6 +1,6 @@
-const Applicant = require("../models/onbording/applicantModel");
+const Applicant = require("../../models/onbording/applicantModel");
 const asyncHandler = require("express-async-handler");
-const ApiError = require("../utils/apiError");
+const ApiError = require("../../utils/apiError");
 
 exports.updateApplicantProfile = asyncHandler(async (req, res, next) => {
   const applicant = await Applicant.findById(req.params.id);

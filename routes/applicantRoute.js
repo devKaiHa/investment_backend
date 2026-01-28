@@ -4,7 +4,7 @@ const {
   updateApplicantStatus,
   getAllApplicants,
   getOneApplicant,
-} = require("../services/applicantService");
+} = require("../services/onbording/applicantService");
 
 const applicantRoute = express.Router();
 
