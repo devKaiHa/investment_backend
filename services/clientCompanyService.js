@@ -13,6 +13,8 @@ const {
 const clientRequest = require("../models/onbording/clientRequestModel");
 const Investor = require("../models/investorModel");
 const InvestorHolding = require("../models/investorHoldingSchema");
+const { default: mongoose } = require("mongoose");
+const shareTransactionLog = require("../models/shareTransactionLog");
 
 // Multer
 const storage = multer.memoryStorage();
@@ -107,80 +109,100 @@ exports.processClientCompanyFiles = asyncHandler(async (req, res, next) => {
 });
 // Create Company
 exports.createClientCompany = asyncHandler(async (req, res) => {
-  // Normalize strings / enums
-  if (req.body.targetMarkets) {
-    req.body.targetMarkets = req.body.targetMarkets.toUpperCase();
-  }
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (req.body.legalStructure) {
-    req.body.legalStructure = req.body.legalStructure.toUpperCase();
-  }
+  try {
+    // Normalize strings / enums
+    if (req.body.targetMarkets) {
+      req.body.targetMarkets = req.body.targetMarkets.toUpperCase();
+    }
 
-  if (req.body.investmentType) {
-    req.body.investmentType = req.body.investmentType.toUpperCase();
-  }
+    if (req.body.legalStructure) {
+      req.body.legalStructure = req.body.legalStructure.toUpperCase();
+    }
 
-  // Normalize booleans
-  req.body.active = normalizeBoolean(req.body.active);
-  req.body.haveInternalBylaws = normalizeBoolean(req.body.haveInternalBylaws);
-  req.body.havePendingLegalDisputes = normalizeBoolean(
-    req.body.havePendingLegalDisputes
-  );
-  req.body.havePriorFinViolation = normalizeBoolean(
-    req.body.havePriorFinViolation
-  );
+    if (req.body.investmentType) {
+      req.body.investmentType = req.body.investmentType.toUpperCase();
+    }
 
-  // Parse JSON fields
-  req.body.owners = safeJsonParse(req.body.owners, []);
-  req.body.boardMembers = safeJsonParse(req.body.boardMembers, []);
-  req.body.legalDisclosures = safeJsonParse(req.body.legalDisclosures, {});
-  req.body.reqInvestAmount = safeJsonParse(req.body.reqInvestAmount, {
-    currency: "",
-    amount: 0,
-  });
+    // Normalize booleans
+    req.body.active = normalizeBoolean(req.body.active);
+    req.body.haveInternalBylaws = normalizeBoolean(req.body.haveInternalBylaws);
+    req.body.havePendingLegalDisputes = normalizeBoolean(
+      req.body.havePendingLegalDisputes
+    );
+    req.body.havePriorFinViolation = normalizeBoolean(
+      req.body.havePriorFinViolation
+    );
 
-  // Ensure number
-  req.body.reqInvestAmount.amount =
-    Number(req.body.reqInvestAmount.amount) || 0;
-
-  req.body.targetMarketCountries = safeJsonParse(
-    req.body.targetMarketCountries,
-    []
-  );
-
-  // Validations
-  if (!req.body.boardMembers || req.body.boardMembers.length < 3) {
-    return res.status(400).json({
-      status: false,
-      message: "At least 3 board members are required",
+    // Parse JSON fields
+    req.body.owners = safeJsonParse(req.body.owners, []);
+    req.body.boardMembers = safeJsonParse(req.body.boardMembers, []);
+    req.body.legalDisclosures = safeJsonParse(req.body.legalDisclosures, {});
+    req.body.reqInvestAmount = safeJsonParse(req.body.reqInvestAmount, {
+      currency: "",
+      amount: 0,
     });
-  }
 
-  if (req.body.haveInternalBylaws && !req.body.associationAndBylaws?.length) {
-    return res.status(400).json({
-      status: false,
-      message: "Association & bylaws document is required",
+    // Ensure number
+    req.body.reqInvestAmount.amount =
+      Number(req.body.reqInvestAmount.amount) || 0;
+
+    req.body.targetMarketCountries = safeJsonParse(
+      req.body.targetMarketCountries,
+      []
+    );
+
+    // Validations
+    if (!req.body.boardMembers || req.body.boardMembers.length < 3) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: false,
+        message: "At least 3 board members are required",
+      });
+    }
+
+    if (req.body.haveInternalBylaws && !req.body.associationAndBylaws?.length) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: false,
+        message: "Association & bylaws document is required",
+      });
+    }
+
+    if (
+      req.body.targetMarkets === "INTERNATIONAL" &&
+      !req.body.targetMarketCountries?.length
+    ) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: false,
+        message: "Target market countries are required",
+      });
+    }
+
+    // Create (IMPORTANT: pass session)
+    const company = await clientRequest.create([req.body], { session });
+    // create([doc]) returns array
+    const createdCompany = company[0];
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(201).json({
+      status: true,
+      message: "Client company created successfully",
+      data: createdCompany,
     });
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    throw err;
   }
-
-  if (
-    req.body.targetMarkets === "INTERNATIONAL" &&
-    !req.body.targetMarketCountries?.length
-  ) {
-    return res.status(400).json({
-      status: false,
-      message: "Target market countries are required",
-    });
-  }
-
-  // Create
-  const company = await clientRequest.create(req.body);
-
-  res.status(201).json({
-    status: true,
-    message: "Client company created successfully",
-    data: company,
-  });
 });
 
 // Get All
@@ -411,223 +433,317 @@ const normalize = (v) => (typeof v === "string" ? v.trim() : v);
 
 // Activate / Deactivate
 exports.clientCompanyStatus = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { status, msg } = req.body; // "approved" | "rejected"
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // Validate the status
-  if (!["approved", "rejected"].includes(status)) {
-    return res.status(400).json({
-      status: false,
-      message: "Invalid status value",
-    });
-  }
+  try {
+    const { id } = req.params;
+    const { status, msg } = req.body;
 
-  // Get the request
-  const request = await clientRequest.findById(id);
+    if (!["approved", "rejected"].includes(status)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: false,
+        message: "Invalid status value",
+      });
+    }
 
-  if (!request) {
-    return res.status(404).json({
-      status: false,
-      message: "Client request not found",
-    });
-  }
+    const request = await clientRequest.findById(id).session(session);
 
-  const exists = await ClientCompanyModel.findOne({ crn: request.crn });
+    if (!request) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        status: false,
+        message: "Client request not found",
+      });
+    }
 
-  if (exists) {
-    return res.status(400).json({
-      status: false,
-      message: "Company already exists",
-    });
-  }
+    if (request.status !== "pending") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: false,
+        message: `Request already ${request.status}`,
+      });
+    }
 
-  // Prevent double action
-  if (request.status !== "pending") {
-    return res.status(400).json({
-      status: false,
-      message: `Request already ${request.status}`,
-    });
-  }
+    const exists = await ClientCompanyModel.findOne({
+      crn: request.crn,
+    }).session(session);
 
-  // When rejecting
-  if (status === "rejected") {
-    request.status = "rejected";
-    request.active = false;
-    request.rejectionMessage = msg || "";
+    if (exists) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        status: false,
+        message: "Company already exists",
+      });
+    }
 
-    await request.save();
+    /* ------------------------------------------------
+       REJECT FLOW
+    ------------------------------------------------ */
+    if (status === "rejected") {
+      request.status = "rejected";
+      request.active = false;
+      request.rejectionMessage = msg || "";
+
+      await request.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      await sendEmail({
+        email: request.email,
+        subject: "Investment Account Rejected!",
+        message: request.rejectionMessage,
+      });
+
+      return res.status(200).json({
+        status: true,
+        message: "Client request rejected",
+      });
+    }
+
+    /* ------------------------------------------------
+       APPROVE FLOW
+    ------------------------------------------------ */
+
+    const companyData = request.toObject();
+
+    delete companyData._id;
+    delete companyData.status;
+    delete companyData.rejectionMessage;
+    delete companyData.createdAt;
+    delete companyData.updatedAt;
+    delete companyData.__v;
+
+    const company = await ClientCompanyModel.create(
+      [
+        {
+          ...companyData,
+          active: true,
+          approvedBy: req.user?._id,
+        },
+      ],
+      { session }
+    );
+
+    const createdCompany = company[0];
+
+    // Create investors for owners (FOUNDERS)
+    if (Array.isArray(createdCompany.owners) && createdCompany.owners.length) {
+      const founders = createdCompany.owners.map((o) => ({
+        fullName: o.fullName,
+        nationalId: String(o.nationalId).trim(),
+      }));
+
+      await Investor.insertMany(founders, {
+        ordered: false,
+        session,
+      });
+    }
+
+    // Delete request AFTER success
+    await clientRequest.findByIdAndDelete(request._id).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
 
     await sendEmail({
-      email: request.email,
-      subject: "Investment Account Rejected!",
-      message: request.rejectionMessage,
+      email: createdCompany.email,
+      subject: "Investment Account Approved!",
+      message: `Hello ${createdCompany.fullLegalName}, your company's application was approved`,
     });
 
     return res.status(200).json({
       status: true,
-      message: "Client request rejected",
+      message: "Client company approved and created successfully",
+      data: {
+        requestId: request._id,
+        companyId: createdCompany._id,
+      },
     });
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    throw err;
   }
-
-  // Create company section
-  const companyData = request.toObject();
-
-  // Remove request fields
-  delete companyData._id;
-  delete companyData.status;
-  delete companyData.rejectionMessage;
-  delete companyData.createdAt;
-  delete companyData.updatedAt;
-  delete companyData.__v;
-
-  // Create the company
-  const company = await ClientCompanyModel.create({
-    ...companyData,
-    active: true,
-    approvedBy: req.user?._id,
-  });
-
-  if (Array.isArray(company.owners) && company.owners.length > 0) {
-    const founders = company.owners.map((owner) => ({
-      fullName: owner.fullName,
-      nationalId: owner.nationalId,
-    }));
-
-    await Investor.insertMany(founders);
-  }
-
-  await sendEmail({
-    email: company.email,
-    subject: "Investment Account Approved!",
-    message: `Hello ${company.fullLegalName}, your company's application was approved`,
-  });
-
-  // Delete request after approval
-  await clientRequest.findByIdAndDelete(request._id);
-
-  res.status(200).json({
-    status: true,
-    message: "Client company approved and created successfully",
-    data: {
-      requestId: request._id,
-      companyId: company._id,
-    },
-  });
 });
 
 exports.updateInvestInfo = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const {
-    sharePrice,
-    initialShares,
-    minInvestShare,
-    maxInvestShare,
-    owners: incomingOwners = [],
-  } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const company = await ClientCompanyModel.findById(id);
-  if (!company) {
-    return res
-      .status(404)
-      .json({ status: false, message: "Company not found" });
-  }
+  try {
+    const { id } = req.params;
+    const {
+      sharePrice,
+      initialShares,
+      minInvestShare,
+      maxInvestShare,
+      owners: incomingOwners = [],
+    } = req.body;
 
-  // 1) Set company values first
-  if (sharePrice !== undefined) company.sharePrice = sharePrice;
-  if (initialShares !== undefined) company.initialShares = initialShares;
-  if (minInvestShare !== undefined) company.minInvestShare = minInvestShare;
-  if (maxInvestShare !== undefined) company.maxInvestShare = maxInvestShare;
-
-  // 2) Apply owners initialShares from request (match by nationalId)
-  if (Array.isArray(incomingOwners) && incomingOwners.length > 0) {
-    company.owners = (company.owners || []).map((o) => {
-      const match = incomingOwners.find(
-        (x) => String(x.nationalId).trim() === String(o.nationalId).trim()
-      );
-
-      if (match && match.initialShares !== undefined) {
-        o.initialShares = Number(match.initialShares) || 0;
-      }
-
-      return o;
-    });
-  }
-
-  // 3) Validate: Sum owners shares must equal company.initialShares
-  const ownersSum = (company.owners || []).reduce(
-    (sum, o) => sum + Number(o.initialShares || 0),
-    0
-  );
-
-  const companyInitialShares = Number(company.initialShares || 0);
-
-  if (ownersSum !== companyInitialShares) {
-    return res.status(400).json({
-      status: false,
-      message: `Sum of owners shares must equal initial shares. ownersSum=${ownersSum}, initialShares=${companyInitialShares}`,
-    });
-  }
-
-  // 4) Ensure investors + holdings
-  if (Array.isArray(company.owners) && company.owners.length > 0) {
-    const companyOwners = company.owners.filter((o) => o?.nationalId);
-
-    const nationalIds = companyOwners.map((o) => String(o.nationalId).trim());
-
-    // find existing investors
-    const existing = await Investor.find({ nationalId: { $in: nationalIds } })
-      .select("_id nationalId")
-      .lean();
-
-    const investorIdByNationalId = new Map(
-      existing.map((inv) => [String(inv.nationalId).trim(), inv._id])
-    );
-
-    // insert missing investors
-    const missing = companyOwners.filter(
-      (o) => !investorIdByNationalId.has(String(o.nationalId).trim())
-    );
-
-    if (missing.length > 0) {
-      await Investor.insertMany(
-        missing.map((o) => ({
-          fullName: o.fullName,
-          nationalId: String(o.nationalId).trim(),
-        })),
-        { ordered: false }
-      );
-
-      // re-fetch ids
-      const after = await Investor.find({ nationalId: { $in: nationalIds } })
-        .select("_id nationalId")
-        .lean();
-
-      after.forEach((inv) =>
-        investorIdByNationalId.set(String(inv.nationalId).trim(), inv._id)
-      );
+    const company = await ClientCompanyModel.findById(id).session(session);
+    if (!company) {
+      throw new Error("Company not found");
     }
 
-    // upsert holdings
-    await Promise.all(
-      companyOwners.map((o) => {
-        const invId = investorIdByNationalId.get(String(o.nationalId).trim());
-        const shares = Number(o.initialShares || 0);
+    // 1) Update company values (allowed anytime)
+    if (sharePrice !== undefined) company.sharePrice = Number(sharePrice) || 0;
+    if (minInvestShare !== undefined)
+      company.minInvestShare = Number(minInvestShare) || 0;
+    if (maxInvestShare !== undefined)
+      company.maxInvestShare = Number(maxInvestShare) || 0;
 
-        return InvestorHolding.updateOne(
-          { investor: invId, company: company._id },
-          { $set: { shares } },
-          { upsert: true }
+    // initialShares should only be set once (optional rule, but recommended)
+    if (initialShares !== undefined && !company.initialShares) {
+      company.initialShares = Number(initialShares) || 0;
+    }
+
+    // 2) Apply owners initialShares only if sent (match by nationalId)
+    if (Array.isArray(incomingOwners) && incomingOwners.length > 0) {
+      company.owners = (company.owners || []).map((o) => {
+        const match = incomingOwners.find(
+          (x) => String(x.nationalId).trim() === String(o.nationalId).trim()
         );
-      })
-    );
+
+        if (match && match.initialShares !== undefined) {
+          o.initialShares = Number(match.initialShares) || 0;
+        }
+        return o;
+      });
+    }
+
+    // 3) Validate owners sum ONLY when owners shares are being set
+    if (Array.isArray(incomingOwners) && incomingOwners.length > 0) {
+      const ownersSum = (company.owners || []).reduce(
+        (sum, o) => sum + Number(o.initialShares || 0),
+        0
+      );
+
+      const companyInitialShares = Number(company.initialShares || 0);
+
+      if (ownersSum !== companyInitialShares) {
+        return res.status(400).json({
+          status: false,
+          message: "Sum of owners shares must equal initial shares",
+        });
+      }
+    }
+
+    // 4) ISSUE logic only once
+    if (
+      !company.shareIssued &&
+      Array.isArray(incomingOwners) &&
+      incomingOwners.length > 0
+    ) {
+      const companyOwners = (company.owners || []).filter((o) => o?.nationalId);
+      const nationalIds = companyOwners.map((o) => String(o.nationalId).trim());
+
+      // find existing investors by nationalId
+      const existing = await Investor.find({ nationalId: { $in: nationalIds } })
+        .select("_id nationalId")
+        .lean()
+        .session(session);
+
+      const investorIdByNationalId = new Map(
+        existing.map((i) => [String(i.nationalId).trim(), i._id])
+      );
+
+      // insert missing investors
+      const missing = companyOwners.filter(
+        (o) => !investorIdByNationalId.has(String(o.nationalId).trim())
+      );
+
+      if (missing.length > 0) {
+        await Investor.insertMany(
+          missing.map((o) => ({
+            fullName: o.fullName,
+            nationalId: String(o.nationalId).trim(),
+          })),
+          { ordered: false, session }
+        );
+
+        const afterInsert = await Investor.find({
+          nationalId: { $in: nationalIds },
+        })
+          .select("_id nationalId")
+          .lean()
+          .session(session);
+
+        afterInsert.forEach((inv) =>
+          investorIdByNationalId.set(String(inv.nationalId).trim(), inv._id)
+        );
+      }
+
+      // upsert holdings
+      await Promise.all(
+        companyOwners.map((o) => {
+          const invId = investorIdByNationalId.get(String(o.nationalId).trim());
+          const shares = Number(o.initialShares || 0);
+
+          return InvestorHolding.updateOne(
+            { investor: invId, company: company._id },
+            { $set: { shares } },
+            { upsert: true, session }
+          );
+        })
+      );
+
+      // create ISSUE logs
+      const logs = companyOwners
+        .map((o) => {
+          const invId = investorIdByNationalId.get(String(o.nationalId).trim());
+          const shares = Number(o.initialShares || 0);
+          const p = Number(company.sharePrice || 0);
+
+          if (!invId || shares <= 0) return null;
+
+          return {
+            type: "ISSUE",
+            instrument: { entityType: "ClientCompany", entityId: company._id },
+            from: { entityType: "ClientCompany", entityId: company._id },
+            to: { entityType: "investors", entityId: invId },
+            shares,
+            sharePrice: p,
+            totalAmount: shares * p,
+            description: {
+              en: `Initial share issuance. Founder ${o.fullName} (${o.nationalId}) received ${shares} shares.`,
+              ar: `إصدار أولي للأسهم. تم تخصيص ${shares} سهمًا للمؤسس ${o.fullName} (${o.nationalId}).`,
+            },
+          };
+        })
+        .filter(Boolean);
+
+      if (logs.length > 0) {
+        await shareTransactionLog.insertMany(logs, { session });
+      }
+
+      company.shareIssued = true;
+    }
+
+    // 5) save + commit
+    await company.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      status: true,
+      message: "Investment info updated",
+      data: company,
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+
+    // keep your error format
+    return res.status(500).json({
+      status: false,
+      message: err?.message || "Server error",
+    });
   }
-
-  // 5) Save company
-  await company.save();
-
-  return res.status(200).json({
-    status: true,
-    message: "Investment info updated",
-    data: company,
-  });
 });

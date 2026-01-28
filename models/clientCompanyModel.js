@@ -28,7 +28,7 @@ const clientCompanyModel = new mongoose.Schema(
         fullName: { type: String, required: true },
         nationality: { type: String, required: true },
         nationalId: { type: String, required: true },
-        initialShares: { type: String, required: true },
+        initialShares: { type: String },
         ownershipPercentage: {
           type: Number,
           required: true,
@@ -110,18 +110,16 @@ const clientCompanyModel = new mongoose.Schema(
         qrCode: { type: String, default: "" },
       },
     ],
-    // partnersIdDocuments: [
-    //   {
-    //     title: String,
-    //     fileUrl: String,
-    //   },
-    // ],
 
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
     },
     // Status
+    shareIssued: {
+      type: Boolean,
+      default: false,
+    },
     active: {
       type: Boolean,
       default: true,

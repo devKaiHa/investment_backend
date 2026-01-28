@@ -18,7 +18,6 @@ const investorSchema = new mongoose.Schema(
     },
     passportId: {
       type: String,
-      unique: true,
       index: true,
       trim: true,
     },

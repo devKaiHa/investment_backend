@@ -1,5 +1,5 @@
 const asyncHandler = require("express-async-handler");
-const InvestorShares = require("../models/investorSharesModel");
+const InvestorShares = require("../models/shareTransactionLog");
 const investmentCompanies = require("../models/investmentCompaniesModel");
 
 // @desc Create investorShares
@@ -137,7 +137,7 @@ exports.updateInvestorSharesModel = asyncHandler(async (req, res, next) => {
     const updatedinvestorShares = await InvestorShares.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     );
 
     if (!updatedinvestorShares) {
@@ -167,7 +167,7 @@ exports.updateInvestorSharesModel = asyncHandler(async (req, res, next) => {
 exports.deleteInvestorShares = asyncHandler(async (req, res, next) => {
   try {
     const deletedinvestorShares = await InvestorShares.findByIdAndDelete(
-      req.params.id,
+      req.params.id
     );
 
     if (!deletedinvestorShares) {
