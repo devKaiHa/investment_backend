@@ -51,7 +51,7 @@ exports.resizeInvestorImages = asyncHandler(async (req, res, next) => {
           fileUrl: filename,
         });
       }
-    })
+    }),
   );
 
   next();
@@ -169,12 +169,7 @@ exports.getAllInvestors = asyncHandler(async (req, res) => {
 exports.getOneInvestor = asyncHandler(async (req, res) => {
   try {
     // FETCH INVESTOR
-    let investor;
-    if (req.body.role === "investor") {
-      investor = await Investor.findById(req.params.id);
-    } else {
-      investor = await applicantModel.findById(req.params.id);
-    }
+    const investor = await Investor.findOne({ authUserId: req.params.id });
 
     if (!investor) {
       return res.status(404).json({
@@ -190,11 +185,11 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
 
     // FETCH TRANSACTIONS
     const totalTransactions = await shareTransactionSchema.countDocuments({
-      investorId: req.params.id,
+      investorId: investor._id,
     });
 
     const transactions = await shareTransactionSchema
-      .find({ investorId: req.params.id })
+      .find({ investorId: investor._id })
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 })
@@ -345,8 +340,8 @@ const storageDisk = multer.diskStorage({
     const ext = file.mimetype.startsWith("image/")
       ? ".webp"
       : file.mimetype === "application/pdf"
-      ? ".pdf"
-      : "";
+        ? ".pdf"
+        : "";
 
     const safeFieldname = file.fieldname.replace(/[^a-zA-Z0-9_-]/g, "_");
     const filename = `Investor-${uuidv4()}-${Date.now()}-${safeFieldname}${ext}`;
@@ -448,7 +443,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
             }
           }
           return shouldKeep;
-        }
+        },
       );
     }
 
@@ -466,7 +461,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           if (existingInvestor.profileImage) {
             try {
               fs.unlinkSync(
-                path.join("uploads/Investor", existingInvestor.profileImage)
+                path.join("uploads/Investor", existingInvestor.profileImage),
               );
             } catch (err) {
               console.warn("Failed to delete old profile image:", err.message);
@@ -475,7 +470,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           existingInvestor.profileImage = file.filename;
         } else {
           const index = existingInvestor.attachments.findIndex(
-            (att) => att.key === key
+            (att) => att.key === key,
           );
           const newFile = { key, fileUrl: file.filename };
 
@@ -485,8 +480,8 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
               fs.unlinkSync(
                 path.join(
                   "uploads/Investor",
-                  existingInvestor.attachments[index].fileUrl
-                )
+                  existingInvestor.attachments[index].fileUrl,
+                ),
               );
             } catch (err) {
               console.warn("Failed to delete old attachment:", err.message);

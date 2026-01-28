@@ -21,13 +21,10 @@ const applicantSchema = new mongoose.Schema(
       default: "draft",
     },
     rejectionReason: String,
-    attachments: [
-      {
-        key: String,
-        fileUrl: String,
-      },
-    ],
-
+    idPhoto: String,
+    livePhoto: String,
+    passportNumber: String,
+    idNumber: String,
     profileImage: String,
     deletable: { type: Boolean, default: true },
   },

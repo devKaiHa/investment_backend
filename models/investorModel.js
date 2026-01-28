@@ -32,15 +32,11 @@ const investorSchema = new mongoose.Schema(
         iban: String,
       },
     ],
-    attachments: [
-      {
-        key: String,
-        fileUrl: String,
-      },
-    ],
+    idPhoto: String,
+    livePhoto: String,
     profileImage: String,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("investors", investorSchema);
