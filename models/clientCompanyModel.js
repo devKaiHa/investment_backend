@@ -28,9 +28,7 @@ const clientCompanyModel = new mongoose.Schema(
         fullName: { type: String, required: true },
         nationality: { type: String, required: true },
         nationalId: { type: String, required: true },
-        isSelling: { type: Boolean, default: false },
-        sellingAmount: { type: Number, default: 0 },
-        startedSellingOn: { type: String, default: null },
+        initialShares: { type: String, required: true },
         ownershipPercentage: {
           type: Number,
           required: true,
@@ -79,12 +77,11 @@ const clientCompanyModel = new mongoose.Schema(
     useOfProceeds: String,
     investmentHorizon: String,
     exitStrategy: String,
+    // Pricing
     sharePrice: { type: Number, default: 0 },
     initialShares: { type: Number, default: 0 },
-    availableShares: { type: Number, default: 0 },
-    minInvestAmount: { type: Number, default: 0 },
-    subscriptionStart: { type: String, default: Date.now },
-    subscriptionEnd: { type: String, default: Date.now },
+    minInvestShare: { type: Number, default: 1 },
+    maxInvestShare: { type: Number, default: 1 },
 
     // Legal Disclosures
     legalDisclosures: {

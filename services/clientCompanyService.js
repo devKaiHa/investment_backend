@@ -10,8 +10,9 @@ const {
   safeJsonParse,
   sendEmail,
 } = require("../utils/helpers");
-const clientRequest = require("../models/clientRequestModel");
-const investorModel = require("../models/investorModel");
+const clientRequest = require("../models/onbording/clientRequestModel");
+const Investor = require("../models/investorModel");
+const InvestorHolding = require("../models/investorHoldingSchema");
 
 // Multer
 const storage = multer.memoryStorage();
@@ -489,17 +490,10 @@ exports.clientCompanyStatus = asyncHandler(async (req, res) => {
   if (Array.isArray(company.owners) && company.owners.length > 0) {
     const founders = company.owners.map((owner) => ({
       fullName: owner.fullName,
-      deletable: false,
-      ownedShares: [
-        {
-          isFounder: true,
-          percentage: owner.ownershipPercentage || 0,
-          company: company._id,
-        },
-      ],
+      nationalId: owner.nationalId,
     }));
 
-    await investorModel.insertMany(founders);
+    await Investor.insertMany(founders);
   }
 
   await sendEmail({
@@ -526,132 +520,114 @@ exports.updateInvestInfo = asyncHandler(async (req, res) => {
   const {
     sharePrice,
     initialShares,
-    availableShares,
-    minInvestAmount,
-    subscriptionStart,
-    subscriptionEnd,
-    owners,
+    minInvestShare,
+    maxInvestShare,
+    owners: incomingOwners = [],
   } = req.body;
 
-  if (!id) {
-    return res.status(400).json({
-      status: false,
-      message: "No ID provided",
-    });
-  }
-
   const company = await ClientCompanyModel.findById(id);
-
   if (!company) {
-    return res.status(404).json({
-      status: false,
-      message: "Company not found",
-    });
+    return res
+      .status(404)
+      .json({ status: false, message: "Company not found" });
   }
 
-  if (!company.active) {
-    return res.status(400).json({
-      status: false,
-      message: "Company isn't active",
-    });
-  }
+  // 1) Set company values first
+  if (sharePrice !== undefined) company.sharePrice = sharePrice;
+  if (initialShares !== undefined) company.initialShares = initialShares;
+  if (minInvestShare !== undefined) company.minInvestShare = minInvestShare;
+  if (maxInvestShare !== undefined) company.maxInvestShare = maxInvestShare;
 
-  // VALIDATIONS
-  if (initialShares !== undefined && Number(initialShares) <= 0) {
-    return res.status(400).json({
-      status: false,
-      message: "Initial shares must be greater than zero",
-    });
-  }
-
-  if (sharePrice !== undefined && Number(sharePrice) <= 0) {
-    return res.status(400).json({
-      status: false,
-      message: "Share price must be greater than zero",
-    });
-  }
-
-  if (
-    subscriptionStart &&
-    subscriptionEnd &&
-    new Date(subscriptionEnd) <= new Date(subscriptionStart)
-  ) {
-    return res.status(400).json({
-      status: false,
-      message: "Subscription end date must be after start date",
-    });
-  }
-
-  if (Array.isArray(owners)) {
-    for (const o of owners) {
-      if (!o.isSelling) continue;
-
-      const ownership = Number(o.ownershipPercentage);
-      const selling = Number(o.sellingAmount);
-
-      if (isNaN(ownership) || isNaN(selling)) {
-        return res.status(400).json({
-          status: false,
-          message: "Invalid ownership or selling percentage",
-        });
-      }
-
-      if (selling <= 0 || selling > 100) {
-        return res.status(400).json({
-          status: false,
-          message: "Selling percentage must be between 1 and 100",
-        });
-      }
-
-      const remainingPercentage = ownership * (1 - selling / 100);
-
-      if (remainingPercentage < 10) {
-        return res.status(400).json({
-          status: false,
-          message: `${o.fullName} must retain at least 10% of the company`,
-        });
-      }
-    }
-  }
-
-  if (Array.isArray(owners)) {
-    company.owners = owners.map((o) => {
-      const prevOwner = company.owners.find(
-        (po) => po.nationalId === o.nationalId
+  // 2) Apply owners initialShares from request (match by nationalId)
+  if (Array.isArray(incomingOwners) && incomingOwners.length > 0) {
+    company.owners = (company.owners || []).map((o) => {
+      const match = incomingOwners.find(
+        (x) => String(x.nationalId).trim() === String(o.nationalId).trim()
       );
 
-      const wasSelling = Boolean(prevOwner?.isSelling);
-      const isSellingNow = Boolean(o.isSelling);
+      if (match && match.initialShares !== undefined) {
+        o.initialShares = Number(match.initialShares) || 0;
+      }
 
-      return {
-        fullName: o.fullName,
-        nationality: o.nationality,
-        nationalId: o.nationalId,
-        ownershipPercentage: o.ownershipPercentage,
-        isSelling: isSellingNow,
-        sellingAmount: o.sellingAmount,
-
-        // Set when isSelling = false changed to true
-        startedSellingOn:
-          !wasSelling && isSellingNow
-            ? new Date().toISOString()
-            : prevOwner?.startedSellingOn ?? null,
-      };
+      return o;
     });
   }
 
-  if (initialShares !== undefined) company.initialShares = initialShares;
-  if (sharePrice !== undefined) company.sharePrice = sharePrice;
-  if (availableShares !== undefined) company.availableShares = availableShares;
-  if (minInvestAmount !== undefined) company.minInvestAmount = minInvestAmount;
-  if (subscriptionStart) company.subscriptionStart = subscriptionStart;
-  if (subscriptionEnd) company.subscriptionEnd = subscriptionEnd;
+  // 3) Validate: Sum owners shares must equal company.initialShares
+  const ownersSum = (company.owners || []).reduce(
+    (sum, o) => sum + Number(o.initialShares || 0),
+    0
+  );
 
+  const companyInitialShares = Number(company.initialShares || 0);
+
+  if (ownersSum !== companyInitialShares) {
+    return res.status(400).json({
+      status: false,
+      message: `Sum of owners shares must equal initial shares. ownersSum=${ownersSum}, initialShares=${companyInitialShares}`,
+    });
+  }
+
+  // 4) Ensure investors + holdings
+  if (Array.isArray(company.owners) && company.owners.length > 0) {
+    const companyOwners = company.owners.filter((o) => o?.nationalId);
+
+    const nationalIds = companyOwners.map((o) => String(o.nationalId).trim());
+
+    // find existing investors
+    const existing = await Investor.find({ nationalId: { $in: nationalIds } })
+      .select("_id nationalId")
+      .lean();
+
+    const investorIdByNationalId = new Map(
+      existing.map((inv) => [String(inv.nationalId).trim(), inv._id])
+    );
+
+    // insert missing investors
+    const missing = companyOwners.filter(
+      (o) => !investorIdByNationalId.has(String(o.nationalId).trim())
+    );
+
+    if (missing.length > 0) {
+      await Investor.insertMany(
+        missing.map((o) => ({
+          fullName: o.fullName,
+          nationalId: String(o.nationalId).trim(),
+        })),
+        { ordered: false }
+      );
+
+      // re-fetch ids
+      const after = await Investor.find({ nationalId: { $in: nationalIds } })
+        .select("_id nationalId")
+        .lean();
+
+      after.forEach((inv) =>
+        investorIdByNationalId.set(String(inv.nationalId).trim(), inv._id)
+      );
+    }
+
+    // upsert holdings
+    await Promise.all(
+      companyOwners.map((o) => {
+        const invId = investorIdByNationalId.get(String(o.nationalId).trim());
+        const shares = Number(o.initialShares || 0);
+
+        return InvestorHolding.updateOne(
+          { investor: invId, company: company._id },
+          { $set: { shares } },
+          { upsert: true }
+        );
+      })
+    );
+  }
+
+  // 5) Save company
   await company.save();
 
-  res.status(200).json({
+  return res.status(200).json({
     status: true,
-    message: "Company investment info updated successfully",
+    message: "Investment info updated",
     data: company,
   });
 });

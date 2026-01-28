@@ -8,7 +8,7 @@ const authUserSchema = new mongoose.Schema(
     activeSessionId: { type: String, default: null },
     sessionStartedAt: { type: Date, default: null },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("authUser", authUserSchema);

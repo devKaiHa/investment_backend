@@ -1,4 +1,4 @@
-const Applicant = require("../models/applicantModel");
+const Applicant = require("../models/onbording/applicantModel");
 const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/apiError");
 

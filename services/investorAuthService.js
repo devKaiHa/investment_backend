@@ -4,9 +4,9 @@ const ApiError = require("../utils/apiError");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const AuthUser = require("../models/AuthUserModel");
-const Applicant = require("../models/applicantModel");
-const AuthUserModel = require("../models/AuthUserModel");
+const AuthUser = require("../models/auth/authUserModel");
+const Applicant = require("../models/onbording/applicantModel");
+const AuthUserModel = require("../models/auth/authUserModel");
 const { default: slugify } = require("slugify");
 
 const SESSION_MAX_AGE = 1000 * 60 * 60 * 24;

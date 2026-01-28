@@ -5,10 +5,23 @@ const investorSchema = new mongoose.Schema(
     authUserId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AuthUser",
-      required: true,
-      unique: true,
+      // required: true,
+      // unique: true,
     },
     fullName: String,
+    nationalId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+      trim: true,
+    },
+    passportId: {
+      type: String,
+      unique: true,
+      index: true,
+      trim: true,
+    },
     latinName: String,
     slug: { type: String, lowercase: true },
     email: String,
@@ -27,17 +40,8 @@ const investorSchema = new mongoose.Schema(
       },
     ],
     profileImage: String,
-    deletable: { type: Boolean, default: true },
-    ownedShares: [
-      {
-        amount: { type: Number, default: 0 },
-        company: { type: mongoose.Schema.Types.ObjectId, ref: "ClientCompany" },
-        isFounder: { type: Boolean, default: false },
-        _id: false,
-      },
-    ],
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("investors", investorSchema);

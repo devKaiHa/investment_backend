@@ -62,7 +62,7 @@ exports.createCompanyInfo = asyncHandler(async (req, res, next) => {
     try {
       await axios.post(
         `${process.env.JOBS_URL}api/auth/createEmployee`,
-        payload,
+        payload
       );
     } catch (err) {
       console.error("Failed to sync employee:", err.message);
@@ -76,7 +76,7 @@ exports.createCompanyInfo = asyncHandler(async (req, res, next) => {
   } else {
     await employeeModel.findOneAndUpdate(
       { email: req.body.email },
-      { companyId: companyInfo._id },
+      { companyId: companyInfo._id }
     );
   }
 
@@ -107,8 +107,9 @@ exports.updataCompanyInfo = asyncHandler(async (req, res, next) => {
     const companyInfo = await CompanyInfnoModel.findByIdAndUpdate(
       { _id: id },
       req.body,
-      { new: true },
+      { new: true }
     );
+
     if (!companyInfo) {
       return next(new ApiError(`There is no company with this id ${id}`, 404));
     } else {
@@ -140,7 +141,7 @@ exports.deleteCompanyBank = asyncHandler(async (req, res) => {
         bankQR: { _id: new mongoose.Types.ObjectId(bankQRId) },
       },
     },
-    { new: true },
+    { new: true }
   );
 
   if (!updatedCompany) {
@@ -180,7 +181,7 @@ exports.updateCompanyBank = asyncHandler(async (req, res) => {
       "bankQR._id": new mongoose.Types.ObjectId(bankQRId),
     },
     { $set: update },
-    { new: true },
+    { new: true }
   );
 
   if (!updatedCompany) {
@@ -219,7 +220,7 @@ exports.addCompanyBankQR = asyncHandler(async (req, res) => {
     }
 
     const exists = company.bankQR.some(
-      (b) => b.accountNumber === accountNumber,
+      (b) => b.accountNumber === accountNumber
     );
 
     if (exists) {
