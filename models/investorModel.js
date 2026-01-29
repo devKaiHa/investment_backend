@@ -35,6 +35,31 @@ const investorSchema = new mongoose.Schema(
     idPhoto: String,
     livePhoto: String,
     profileImage: String,
+    kycPayment: {
+      method: {
+        type: String,
+        enum: ["bank", "shamCash", "usdt"],
+      },
+      bank: {
+        beneficiaryFullName: String,
+        beneficiaryAddress: String,
+        bankName: String,
+        accountNumber: String,
+        transferReason: String,
+        amount: Number,
+      },
+      shamCash: {
+        accountNumber: String,
+        qrCode: String,
+        beneficiaryName: String,
+        beneficiaryAddress: String,
+      },
+      usdt: {
+        transferNetwork: String,
+        walletAddress: String,
+        walletQr: String,
+      },
+    },
   },
   { timestamps: true },
 );

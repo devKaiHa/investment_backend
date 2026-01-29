@@ -26,6 +26,39 @@ const applicantSchema = new mongoose.Schema(
     passportNumber: String,
     idNumber: String,
     profileImage: String,
+
+    kycPayment: {
+      method: {
+        type: String,
+        enum: ["bank", "shamcash", "usdt"],
+      },
+
+      // Bank transfer in Syria
+      bank: {
+        beneficiaryFullName: String,
+        beneficiaryAddress: String,
+        bankName: String,
+        accountNumber: String,
+        transferReason: String,
+        amount: Number,
+      },
+
+      // Sham Cash
+      shamCash: {
+        accountNumber: String,
+        qrCode: String,
+        beneficiaryName: String,
+        beneficiaryAddress: String,
+      },
+
+      // USDT
+      usdt: {
+        transferNetwork: String,
+        walletAddress: String,
+        walletQr: String,
+      },
+    },
+
     deletable: { type: Boolean, default: true },
   },
   { timestamps: true },

@@ -18,6 +18,8 @@ const upload = multer({
 exports.uploadFields = upload.fields([
   { name: "idPhoto", maxCount: 1 },
   { name: "livePhoto", maxCount: 1 },
+  { name: "qrCode", maxCount: 1 },
+  { name: "walletQr", maxCount: 1 },
 ]);
 exports.processApplicantPhotos = asyncHandler(async (req, res, next) => {
   if (!req.files) return next();
@@ -50,6 +52,14 @@ exports.processApplicantPhotos = asyncHandler(async (req, res, next) => {
     req.body.livePhoto = await processFile(req.files.livePhoto[0]);
   }
 
+  if (req.files.qrCode?.[0]) {
+    req.body.qrCode = await processFile(req.files.qrCode[0]);
+  }
+
+  if (req.files.walletQr?.[0]) {
+    req.body.walletQr = await processFile(req.files.walletQr[0]);
+  }
+
   next();
 });
 
@@ -57,7 +67,48 @@ exports.updateApplicantProfile = asyncHandler(async (req, res, next) => {
   const applicant = await Applicant.findOne({ authUserId: req.params.id });
   if (!applicant) return next(new ApiError("No user found", 404));
 
-  Object.assign(applicant, req.body);
+  const normalFields = [
+    "fullName",
+    "email",
+    "phone",
+    "birthDate",
+    "passportNumber",
+    "idNumber",
+    "reviewStatus",
+    "idPhoto",
+    "livePhoto",
+  ];
+
+  normalFields.forEach((field) => {
+    if (req.body[field] !== undefined) {
+      applicant[field] = req.body[field];
+    }
+  });
+
+  //payment
+  if (req.body.paymentMethod) {
+    applicant.kycPayment = {
+      method: req.body.paymentMethod,
+    };
+
+    if (req.body.bankTransfer) {
+      applicant.kycPayment.bank = JSON.parse(req.body.bankTransfer);
+    }
+
+    if (req.body.shamCash) {
+      applicant.kycPayment.shamCash = {
+        ...JSON.parse(req.body.shamCash),
+        ...(req.body.qrCode && { qrCode: req.body.qrCode }),
+      };
+    }
+
+    if (req.body.usdt) {
+      applicant.kycPayment.usdt = {
+        ...JSON.parse(req.body.usdt),
+        ...(req.body.walletQr && { walletQr: req.body.walletQr }),
+      };
+    }
+  }
 
   await applicant.save();
 
@@ -66,6 +117,52 @@ exports.updateApplicantProfile = asyncHandler(async (req, res, next) => {
     data: applicant,
   });
 });
+
+exports.validateKycPayment = (req, res, next) => {
+  const { kycPayment } = req.body;
+
+  if (!kycPayment?.method) {
+    throw new ApiError("Payment method is required", 400);
+  }
+
+  if (kycPayment.method === "bank") {
+    const {
+      beneficiaryName,
+      beneficiaryAddress,
+      bankName,
+      accountNumber,
+      transferReason,
+      amount,
+    } = kycPayment.bank || {};
+
+    if (
+      !beneficiaryName ||
+      !beneficiaryAddress ||
+      !bankName ||
+      !accountNumber ||
+      !transferReason ||
+      !amount
+    ) {
+      throw new ApiError("Incomplete bank transfer data", 400);
+    }
+  }
+
+  if (kycPayment.method === "shamcash") {
+    const { accountNumber, qrCode } = kycPayment.shamCash || {};
+    if (!accountNumber && !qrCode) {
+      throw new ApiError("Sham Cash requires account number or QR code", 400);
+    }
+  }
+
+  if (kycPayment.method === "usdt") {
+    const { network, walletAddress } = kycPayment.usdt || {};
+    if (!network || !walletAddress) {
+      throw new ApiError("USDT network and wallet are required", 400);
+    }
+  }
+
+  next();
+};
 
 exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
@@ -122,6 +219,7 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
         profileImage: applicantObj.profileImage,
         nationalId: applicantObj.idNumber,
         passportId: applicantObj.passportNumber,
+        kycPayment: applicant.kycPayment,
       };
 
       await investorModel.create([investorPayload], { session });
@@ -141,11 +239,14 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
 });
 
 exports.getAllApplicants = asyncHandler(async (req, res, next) => {
-  const { keyword, page = 1, limit = 10, sort } = req.query;
+  const { keyword, page = 1, limit = 10, sort, reviewStatus } = req.query;
 
   try {
     const query = {};
 
+    if (reviewStatus) {
+      query.reviewStatus = reviewStatus;
+    }
     // Keyword search
     if (keyword && keyword.trim() !== "") {
       query.$or = [
