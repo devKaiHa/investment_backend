@@ -10,8 +10,8 @@ const {
   getAllClientRequests,
   getOneCompany,
   updateInvestInfo,
-} = require("../services/clientCompanyService");
-const authService = require("../services/auth/authService");
+} = require("../../services/InvestmentsEntity/clientCompanyService");
+const authService = require("../../services/auth/authService");
 
 const clientCompanyRoute = express.Router();
 

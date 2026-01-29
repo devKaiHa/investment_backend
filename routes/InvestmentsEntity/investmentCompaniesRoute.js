@@ -10,7 +10,7 @@ const {
   uploadInvestmentCompaniesImages,
   deleteCompanyBank,
   updateCompanyBank,
-} = require("../services/investmentCompaniesService");
+} = require("../../services/investmentCompaniesService");
 
 const investmentCompaniesRoute = express.Router();
 

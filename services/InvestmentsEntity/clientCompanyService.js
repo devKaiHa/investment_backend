@@ -4,17 +4,17 @@ const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const asyncHandler = require("express-async-handler");
-const ClientCompanyModel = require("../models/clientCompanyModel");
+const ClientCompanyModel = require("../../models/InvestmentsEntity/clientCompanyModel");
 const {
   normalizeBoolean,
   safeJsonParse,
   sendEmail,
-} = require("../utils/helpers");
-const clientRequest = require("../models/onbording/clientRequestModel");
-const Investor = require("../models/investorModel");
-const InvestorHolding = require("../models/investorHoldingSchema");
+} = require("../../utils/helpers");
+const clientRequest = require("../../models/onbording/clientRequestModel");
+const Investor = require("../../models/investorModel");
+const InvestorHolding = require("../../models/shares/shareHoldingSchema");
 const { default: mongoose } = require("mongoose");
-const shareTransactionLog = require("../models/shareTransactionLog");
+const shareTransactionLog = require("../../models/shareTransactionLog");
 
 // Multer
 const storage = multer.memoryStorage();

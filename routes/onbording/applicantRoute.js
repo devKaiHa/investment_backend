@@ -6,7 +6,7 @@ const {
   getOneApplicant,
   uploadFields,
   processApplicantPhotos,
-} = require("../services/onbording/applicantService");
+} = require("../../services/onbording/applicantService");
 
 const applicantRoute = express.Router();
 
