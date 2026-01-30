@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
 
+// ============================
+// ============================
+// DEPRECATING, KEPT FOR REFERENCE
+// ============================
+// ============================
 const sharePurchaseRequestModel = new mongoose.Schema(
   {
     investorId: {

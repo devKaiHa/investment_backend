@@ -9,6 +9,7 @@ const applicantRoute = require("./onbording/applicantRoute");
 const investmentFundRoute = require("./InvestmentsEntity/investmentFundRoute");
 const sharesHoldingRoute = require("./shares/sharesRoute");
 const InvestmentsEntitySharedRoute = require("./InvestmentsEntity/InvestmentsEntitySharedRoute");
+const shareTradeRequestRoute = require("./shares/shareTradeRequestRoute");
 
 const mountRoutes = (app) => {
   app.use("/api/investmentCompanies", investmentCompaniesRoute);
@@ -22,6 +23,7 @@ const mountRoutes = (app) => {
   app.use("/api/companyinfo", companyInfoRoute);
   app.use("/api/clientCompany", clientCompanyRoute);
   app.use("/api/applicants", applicantRoute);
+  app.use("/api/shareTradeRequest", shareTradeRequestRoute);
 };
 
 module.exports = mountRoutes;

@@ -3,13 +3,16 @@ const express = require("express");
 const authService = require("../../services/auth/authService");
 const {
   getInvestmentEntityLog,
-} = require("../../services/InvestmentsEntity/InvestmentsEntityLogService");
+  getAllInvestmentEntities,
+} = require("../../services/InvestmentsEntity/InvestmentsEntityService");
 
 const InvestmentsEntitySharedRoute = express.Router();
 
 InvestmentsEntitySharedRoute.route("/").get(
   authService.protect,
-  getInvestmentEntityLog
+  getInvestmentEntityLog,
 );
+
+InvestmentsEntitySharedRoute.route("/entities").get(getAllInvestmentEntities);
 
 module.exports = InvestmentsEntitySharedRoute;
