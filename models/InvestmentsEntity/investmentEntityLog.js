@@ -15,7 +15,6 @@ const investmentEntityLogSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Who did the action (admin / employee)
     actorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
@@ -23,7 +22,6 @@ const investmentEntityLogSchema = new mongoose.Schema(
       index: true,
     },
 
-    // What happened
     action: {
       type: String,
       enum: ["ISSUE_SHARES", "UPDATE_INVEST_INFO"],

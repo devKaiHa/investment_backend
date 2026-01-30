@@ -13,7 +13,7 @@ const InvestmentsEntitySharedRoute = require("./InvestmentsEntity/InvestmentsEnt
 const mountRoutes = (app) => {
   app.use("/api/investmentCompanies", investmentCompaniesRoute);
   app.use("/api/investmentFunds", investmentFundRoute);
-  app.use("/api/investmentEntityLog", InvestmentsEntitySharedRoute);
+  app.use("/api/investmentEntityShared", InvestmentsEntitySharedRoute);
   app.use("/api/sharesholding", sharesHoldingRoute);
   app.use("/api/investor", investorRoute);
   app.use("/api/investorShares", investorSharesRoute);
