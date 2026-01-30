@@ -95,9 +95,9 @@ exports.updateApplicantProfile = asyncHandler(async (req, res, next) => {
       applicant.kycPayment.bank = JSON.parse(req.body.bankTransfer);
     }
 
-    if (req.body.shamCash) {
+    if (req.body.shamcash) {
       applicant.kycPayment.shamCash = {
-        ...JSON.parse(req.body.shamCash),
+        ...JSON.parse(req.body.shamcash),
         ...(req.body.qrCode && { qrCode: req.body.qrCode }),
       };
     }
