@@ -226,7 +226,7 @@ exports.updatePurchaseRequest = asyncHandler(async (req, res, next) => {
     req.body,
     {
       new: true,
-    },
+    }
   );
   if (!purchaseRequest) {
     return res.status(404).json({
@@ -245,7 +245,7 @@ exports.updatePurchaseRequest = asyncHandler(async (req, res, next) => {
 exports.deletePurchaseRequest = asyncHandler(async (req, res, next) => {
   try {
     const deletedRequest = await sharePurchaseRequestModel.findByIdAndDelete(
-      req.params.id,
+      req.params.id
     );
 
     if (!deletedRequest) {

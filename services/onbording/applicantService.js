@@ -182,7 +182,7 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
     const applicant = await Applicant.findOne(
       { authUserId: req.params.id },
       null,
-      { session },
+      { session }
     );
 
     if (!applicant) {

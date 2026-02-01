@@ -81,3 +81,160 @@ exports.getSharesHoldings = asyncHandler(async (req, res) => {
     data,
   });
 });
+
+exports.getHolderPortfolioSummary = asyncHandler(async (req, res) => {
+  const { holderType, holderId } = req.query;
+
+  if (!holderType || !holderId) {
+    return res.status(400).json({
+      status: false,
+      message: "holderType and holderId are required",
+    });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(holderId)) {
+    return res.status(400).json({
+      status: false,
+      message: "Invalid holderId",
+    });
+  }
+
+  const holderObjectId = new mongoose.Types.ObjectId(holderId);
+
+  const result = await ShareHolding.aggregate([
+    {
+      $match: {
+        holderType,
+        holderId: holderObjectId,
+      },
+    },
+
+    // Lookup companies for assetType=ClientCompany
+    {
+      $lookup: {
+        from: "clientcompanies",
+        let: { aid: "$assetId", atype: "$assetType" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$$atype", "ClientCompany"] },
+                  { $eq: ["$_id", "$$aid"] },
+                ],
+              },
+            },
+          },
+          {
+            $project: { fullLegalName: 1, tradeName: 1, crn: 1, sharePrice: 1 },
+          },
+        ],
+        as: "company",
+      },
+    },
+
+    // Lookup funds for assetType=InvestmentFund
+    {
+      $lookup: {
+        from: "investmentfunds",
+        let: { aid: "$assetId", atype: "$assetType" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$$atype", "InvestmentFund"] },
+                  { $eq: ["$_id", "$$aid"] },
+                ],
+              },
+            },
+          },
+          { $project: { fullLegalName: 1, sharePrice: 1 } },
+        ],
+        as: "fund",
+      },
+    },
+
+    // Normalize the asset doc
+    {
+      $addFields: {
+        assetDoc: {
+          $cond: [
+            { $eq: ["$assetType", "ClientCompany"] },
+            { $first: "$company" },
+            { $first: "$fund" },
+          ],
+        },
+      },
+    },
+
+    // Compute price + value
+    {
+      $addFields: {
+        sharePrice: { $ifNull: ["$assetDoc.sharePrice", 0] },
+        value: {
+          $multiply: [
+            { $ifNull: ["$shares", 0] },
+            { $ifNull: ["$assetDoc.sharePrice", 0] },
+          ],
+        },
+        assetName: {
+          $ifNull: [
+            "$assetDoc.fullLegalName",
+            { $ifNull: ["$assetDoc.tradeName", "—"] },
+          ],
+        },
+      },
+    },
+
+    // Clean output rows
+    {
+      $project: {
+        _id: 0,
+        assetType: 1,
+        assetId: 1,
+        assetName: 1,
+        shares: 1,
+        sharePrice: 1,
+        value: 1,
+      },
+    },
+
+    // Sort (optional)
+    { $sort: { value: -1 } },
+
+    // Build summary + breakdown in one response
+    {
+      $group: {
+        _id: null,
+        totalShares: { $sum: "$shares" },
+        totalValue: { $sum: "$value" },
+        breakdown: { $push: "$$ROOT" },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        totalShares: 1,
+        totalValue: 1,
+        breakdown: 1,
+      },
+    },
+  ]);
+
+  const payload = result?.[0] || {
+    totalShares: 0,
+    totalValue: 0,
+    breakdown: [],
+  };
+
+  return res.status(200).json({
+    status: true,
+    holder: { holderType, holderId },
+    summary: {
+      totalShares: payload.totalShares,
+      totalValue: payload.totalValue,
+    },
+    breakdown: payload.breakdown,
+  });
+});

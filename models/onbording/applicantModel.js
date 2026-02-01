@@ -26,7 +26,6 @@ const applicantSchema = new mongoose.Schema(
     passportNumber: String,
     idNumber: String,
     profileImage: String,
-
     kycPayment: {
       method: {
         type: String,
@@ -61,7 +60,7 @@ const applicantSchema = new mongoose.Schema(
 
     deletable: { type: Boolean, default: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("applicant", applicantSchema);

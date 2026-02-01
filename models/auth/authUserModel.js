@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const authUserSchema = new mongoose.Schema(
   {
-    phone: String,
+    phone: { type: String, unique: true },
     password: String,
     active: { type: Boolean, default: true },
     activeSessionId: { type: String, default: null },

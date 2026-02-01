@@ -41,6 +41,7 @@ exports.getInvestorTradeRequests = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, sort = "-createdAt" } = req.query;
   const skip = (page - 1) * limit;
 
+  console.log(req.query);
   const query = { investor: req.params.id };
 
   const [data, total] = await Promise.all([
@@ -48,7 +49,6 @@ exports.getInvestorTradeRequests = asyncHandler(async (req, res) => {
       .sort(sort)
       .skip(skip)
       .limit(Number(limit))
-      .populate("investor", "_id fullName phoneNumber")
       .populate("source"),
 
     ShareTradeRequest.countDocuments(query),
@@ -182,10 +182,10 @@ exports.updateTradeRequest = asyncHandler(async (req, res) => {
         ? request.requestStatus === "approved"
           ? "approved"
           : request.requestStatus === "rejected"
-            ? "rejected"
-            : request.requestStatus === "confirmed"
-              ? "confirmed"
-              : "updated"
+          ? "rejected"
+          : request.requestStatus === "confirmed"
+          ? "confirmed"
+          : "updated"
         : "updated",
     performedBy: req.body.userId,
     performedByType: "Admin",
