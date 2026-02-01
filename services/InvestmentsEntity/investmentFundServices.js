@@ -309,8 +309,24 @@ exports.getAllInvestmentFunds = asyncHandler(async (req, res) => {
 // GET /investment-funds/:id
 exports.getOneInvestmentFund = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  console.log("ss");
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ status: false, message: "Invalid fund id" });
+  }
 
-  const fund = await InvestmentFund.findById(id).lean();
+  const fundId = new mongoose.Types.ObjectId(id);
+
+  const [fund, holding] = await Promise.all([
+    InvestmentFund.findById(fundId).lean(),
+    Holding.findOne({
+      holderType: "InvestmentFund",
+      holderId: fundId,
+      assetType: "InvestmentFund",
+      assetId: fundId,
+    })
+      .select("shares -_id")
+      .lean(),
+  ]);
 
   if (!fund) {
     return res.status(404).json({
@@ -319,8 +335,11 @@ exports.getOneInvestmentFund = asyncHandler(async (req, res) => {
     });
   }
 
-  res.status(200).json({
+  return res.status(200).json({
     status: true,
-    data: fund,
+    data: {
+      ...fund,
+      treasuryShares: holding?.shares ?? 0, // ✅ this is what you care about
+    },
   });
 });

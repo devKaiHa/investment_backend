@@ -1,7 +1,6 @@
 const investmentCompaniesRoute = require("./InvestmentsEntity/investmentCompaniesRoute");
 const investorRoute = require("./investorRoute");
 const investorSharesRoute = require("./investorSharesRoute");
-const sharePurchaseRequestRoute = require("./sharePurchaseRequestRoute");
 const authRoute = require("./auth/authRoute");
 const companyInfoRoute = require("./companyInfoRoute");
 const clientCompanyRoute = require("./onbording/clientCompanyRoute");
@@ -12,14 +11,16 @@ const InvestmentsEntitySharedRoute = require("./InvestmentsEntity/InvestmentsEnt
 const shareTradeRequestRoute = require("./shares/shareTradeRequestRoute");
 
 const mountRoutes = (app) => {
+  app.use("/api/auth", authRoute);
+  // Investment Entites
   app.use("/api/investmentCompanies", investmentCompaniesRoute);
   app.use("/api/investmentFunds", investmentFundRoute);
   app.use("/api/investmentEntityShared", InvestmentsEntitySharedRoute);
+  // Shares
   app.use("/api/sharesholding", sharesHoldingRoute);
   app.use("/api/investor", investorRoute);
   app.use("/api/investorShares", investorSharesRoute);
-  app.use("/api/sharePurchaseRequest", sharePurchaseRequestRoute);
-  app.use("/api/auth", authRoute);
+
   app.use("/api/companyinfo", companyInfoRoute);
   app.use("/api/clientCompany", clientCompanyRoute);
   app.use("/api/applicants", applicantRoute);

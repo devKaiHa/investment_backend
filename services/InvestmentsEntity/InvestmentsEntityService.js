@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const InvestmentEntityLog = require("../../models/InvestmentsEntity/investmentEntityLog");
+const shareHoldings = require("../../models/shares/shareHoldingSchema");
 const InvestmentFund = require("../../models/InvestmentsEntity/investmentFundModel");
 const ClientCompanyModel = require("../../models/InvestmentsEntity/clientCompanyModel");
 
@@ -64,7 +65,9 @@ exports.getAllInvestmentEntities = asyncHandler(async (req, res) => {
   } = req.query;
 
   const isActive = active === "true";
-  const skip = (page - 1) * limit;
+  const pageNum = Math.max(Number(page), 1);
+  const limitNum = Math.min(Math.max(Number(limit), 1), 100);
+  const skip = (pageNum - 1) * limitNum;
 
   const query = { active: isActive };
 
@@ -82,40 +85,65 @@ exports.getAllInvestmentEntities = asyncHandler(async (req, res) => {
     InvestmentFund.find(query).lean(),
   ]);
 
-  // Normalize results
-  const combined = [
-    ...companies.map((item) => ({
-      ...item,
-      entityType: "ClientCompany",
-    })),
-    ...funds.map((item) => ({
-      ...item,
-      entityType: "InvestmentFund",
-    })),
-  ];
+  // ✅ Add holdings ONLY for funds (treasury: fund holds itself)
+  const fundIds = funds.map((f) => f._id);
+
+  let holdingsByFundId = new Map();
+  if (fundIds.length) {
+    const holdings = await shareHoldings
+      .find({
+        holderType: "InvestmentFund",
+        holderId: { $in: fundIds },
+        assetType: "InvestmentFund",
+        assetId: { $in: fundIds },
+      })
+      .select("holderId shares")
+      .lean();
+
+    holdingsByFundId = new Map(
+      holdings.map((h) => [String(h.holderId), Number(h.shares || 0)])
+    );
+  }
+
+  const fundsWithHoldings = funds.map((f) => ({
+    ...f,
+    entityType: "InvestmentFund",
+    treasuryShares: holdingsByFundId.get(String(f._id)) ?? 0,
+  }));
+
+  const companiesNormalized = companies.map((c) => ({
+    ...c,
+    entityType: "ClientCompany",
+  }));
+
+  const combined = [...companiesNormalized, ...fundsWithHoldings];
 
   // Sort
-  const sortField = sort.replace("-", "");
-  const sortOrder = sort.startsWith("-") ? -1 : 1;
+  const sortField = String(sort).replace("-", "");
+  const sortOrder = String(sort).startsWith("-") ? -1 : 1;
 
   combined.sort((a, b) => {
-    if (!a[sortField] || !b[sortField]) return 0;
-    return a[sortField] > b[sortField] ? sortOrder : -sortOrder;
+    const av = a?.[sortField];
+    const bv = b?.[sortField];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return av > bv ? sortOrder : av < bv ? -sortOrder : 0;
   });
 
   const totalItems = combined.length;
-  const paginatedData = combined.slice(skip, skip + Number(limit));
+  const paginatedData = combined.slice(skip, skip + limitNum);
 
-  res.status(200).json({
+  return res.status(200).json({
     status: true,
     message: "success",
     pagination: {
       totalItems,
-      totalPages: Math.ceil(totalItems / limit),
-      currentPage: Number(page),
-      itemsPerPage: Number(limit),
-      hasNextPage: skip + Number(limit) < totalItems,
-      hasPreviousPage: page > 1,
+      totalPages: Math.ceil(totalItems / limitNum),
+      currentPage: pageNum,
+      itemsPerPage: limitNum,
+      hasNextPage: skip + limitNum < totalItems,
+      hasPreviousPage: pageNum > 1,
     },
     data: paginatedData,
   });
