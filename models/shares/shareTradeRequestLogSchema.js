@@ -22,7 +22,7 @@ const shareTradeRequestLogSchema = new mongoose.Schema(
 
     performedByType: {
       type: String,
-      enum: ["Investor", "Admin", "System"],
+      enum: ["investors", "Employee"],
       required: true,
     },
 

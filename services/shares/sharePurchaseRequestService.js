@@ -21,7 +21,7 @@ exports.createTradeRequest = asyncHandler(async (req, res) => {
     tradeRequest: tradeRequest._id,
     action: "created",
     performedBy: req.body.userId,
-    performedByType: "Investor",
+    performedByType: "investors",
     newStatus: tradeRequest.requestStatus,
   });
 
@@ -130,9 +130,9 @@ exports.getTradeRequestById = asyncHandler(async (req, res) => {
     .populate("investor", "_id fullName phoneNumber")
     .populate("source", "_id fullLegalName");
 
-  const logs = await ShareTradeRequestLog.findOne({
+  const logs = await ShareTradeRequestLog.find({
     tradeRequest: req.params.id,
-  });
+  }).populate("performedBy");
 
   const holdings = await shareHoldingSchema.find({
     holderId: request.source._id,
@@ -182,13 +182,13 @@ exports.updateTradeRequest = asyncHandler(async (req, res) => {
         ? request.requestStatus === "approved"
           ? "approved"
           : request.requestStatus === "rejected"
-          ? "rejected"
-          : request.requestStatus === "confirmed"
-          ? "confirmed"
-          : "updated"
+            ? "rejected"
+            : request.requestStatus === "confirmed"
+              ? "confirmed"
+              : "updated"
         : "updated",
     performedBy: req.body.userId,
-    performedByType: "Admin",
+    performedByType: "Employee",
     previousStatus,
     newStatus: request.requestStatus,
     note: req.body.rejectionReason || "",
