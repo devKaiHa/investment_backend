@@ -29,6 +29,7 @@ exports.investorRegister = asyncHandler(async (req, res, next) => {
     fullName,
     slug: slugify(fullName),
     phone,
+    country,
   });
 
   const sessionId = crypto.randomUUID();
