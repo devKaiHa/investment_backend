@@ -21,6 +21,7 @@ const investorSchema = new mongoose.Schema(
       index: true,
       trim: true,
     },
+    passportExpDate: String,
     latinName: String,
     slug: { type: String, lowercase: true },
     email: String,
@@ -61,7 +62,7 @@ const investorSchema = new mongoose.Schema(
       },
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("investors", investorSchema);
