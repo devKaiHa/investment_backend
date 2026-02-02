@@ -12,6 +12,10 @@ const applicantSchema = new mongoose.Schema(
     latinName: String,
     slug: { type: String, lowercase: true },
     email: String,
+    country: {
+      type: String,
+      uppercase: true,
+    },
     phone: String,
     birthDate: String,
 
