@@ -65,6 +65,7 @@ exports.getShareTransactions = asyncHandler(async (req, res) => {
   // -------- fetch --------
   const [rows, total] = await Promise.all([
     ShareTransaction.find(query)
+      .populate("holderId", "_id fullName fullLegalName")
       .sort(sort)
       .skip(skip)
       .limit(Number(limit))

@@ -6,13 +6,20 @@ const {
   getAllInvestmentFunds,
   getOneInvestmentFund,
   updateInvestmentFund,
+  processFundLogo,
+  uploadFundLogo,
 } = require("../../services/InvestmentsEntity/investmentFundServices");
 
 const investmentFundRoute = express.Router();
 
 investmentFundRoute
   .route("/")
-  .post(authService.protect, createInvestmentFund)
+  .post(
+    authService.protect,
+    uploadFundLogo,
+    processFundLogo,
+    createInvestmentFund
+  )
   .get(getAllInvestmentFunds);
 
 investmentFundRoute

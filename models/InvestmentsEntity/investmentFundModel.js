@@ -8,6 +8,18 @@ const investmentFundSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    nameAr: { type: String, trim: true, default: "" },
+
+    logo: { type: String, default: "" },
+
+    code: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+      unique: true, // recommended
+      index: true,
+    },
 
     // Pricing
     sharePrice: {

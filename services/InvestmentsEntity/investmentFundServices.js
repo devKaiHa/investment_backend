@@ -4,6 +4,55 @@ const InvestmentFund = require("../../models/InvestmentsEntity/investmentFundMod
 const Holding = require("../../models/shares/sharesHolderModel");
 const SharesTransaction = require("../../models/shares/shareTransactionModel");
 const InvestmentEntityLog = require("../../models/InvestmentsEntity/investmentEntityLog");
+const multer = require("multer");
+const sharp = require("sharp");
+const path = require("path");
+const fs = require("fs");
+const { v4: uuidv4 } = require("uuid");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+});
+
+// single field: logo
+exports.uploadFundLogo = upload.single("logo");
+
+// process and save logo
+exports.processFundLogo = async (req, res, next) => {
+  try {
+    if (!req.file) return next(); // no logo uploaded
+
+    if (!req.file.mimetype.startsWith("image/")) {
+      return res
+        .status(400)
+        .json({ status: false, message: "Only images are allowed" });
+    }
+
+    // folder for fund logos
+    const uploadDir = "uploads/InvestmentFunds";
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+
+    const filename = `FundLogo-${uuidv4()}.webp`;
+    const uploadPath = path.join(uploadDir, filename);
+
+    await sharp(req.file.buffer)
+      .rotate()
+      .resize({ width: 600, height: 600, fit: "inside" })
+      .webp({ quality: 80 })
+      .toFile(uploadPath);
+
+    // 2) OR store relative path (often easier when serving static):
+    req.body.logo = `${uploadDir}/${filename}`;
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({
+      status: false,
+      message: err?.message || "Failed to process fund logo",
+    });
+  }
+};
 
 exports.createInvestmentFund = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
@@ -12,29 +61,47 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
   try {
     const {
       fullLegalName,
+      nameAr = "",
+      code,
+      logo = "",
+
       sharePrice,
       initialShares,
       minInvestShare,
       maxInvestShare,
     } = req.body;
 
+    // normalize
+    const fullName = String(fullLegalName || "").trim();
+    const nameArClean = String(nameAr || "").trim();
+    const codeClean = String(code || "")
+      .trim()
+      .toUpperCase();
+
     const price = Number(sharePrice);
     const shares = Number(initialShares);
     const minS = Number(minInvestShare);
     const maxS = Number(maxInvestShare);
 
-    // minimal validations
-    if (!fullLegalName?.trim()) {
+    // =====================
+    // Validations
+    // =====================
+    if (!fullName) {
       await session.abortTransaction();
-      session.endSession();
       return res
         .status(400)
         .json({ status: false, message: "fullLegalName is required" });
     }
 
+    if (!codeClean) {
+      await session.abortTransaction();
+      return res
+        .status(400)
+        .json({ status: false, message: "code is required" });
+    }
+
     if (!Number.isFinite(price) || price <= 0) {
       await session.abortTransaction();
-      session.endSession();
       return res
         .status(400)
         .json({ status: false, message: "sharePrice must be > 0" });
@@ -42,7 +109,6 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
 
     if (!Number.isInteger(shares) || shares <= 0) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({
         status: false,
         message: "initialShares must be a positive integer",
@@ -56,7 +122,6 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
       maxS < 1
     ) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({
         status: false,
         message: "minInvestShare/maxInvestShare must be integers >= 1",
@@ -65,7 +130,6 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
 
     if (minS > maxS) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({
         status: false,
         message: "minInvestShare cannot be greater than maxInvestShare",
@@ -74,18 +138,35 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
 
     if (maxS > shares) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({
         status: false,
         message: "maxInvestShare cannot exceed initialShares",
       });
     }
 
+    // code uniqueness guard (better UX than letting Mongo throw)
+    const existing = await InvestmentFund.findOne({ code: codeClean })
+      .session(session)
+      .lean();
+
+    if (existing) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        status: false,
+        message: "code already exists",
+      });
+    }
+
+    // =====================
     // 1) Create fund
+    // =====================
     const [fund] = await InvestmentFund.create(
       [
         {
-          fullLegalName: fullLegalName.trim(),
+          fullLegalName: fullName,
+          nameAr: nameArClean,
+          code: codeClean,
+          logo: String(logo || ""), // set by middleware, or ""
           sharePrice: price,
           initialShares: shares,
           minInvestShare: minS,
@@ -96,7 +177,9 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
       { session }
     );
 
-    // 2) Holding: fund treasury holds its own issued shares
+    // =====================
+    // 2) Holding: fund treasury owns its issued shares
+    // =====================
     await Holding.updateOne(
       {
         holderType: "InvestmentFund",
@@ -108,6 +191,9 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
       { upsert: true, session }
     );
 
+    // =====================
+    // 3) Shares transaction: ISSUE
+    // =====================
     await SharesTransaction.create(
       [
         {
@@ -116,9 +202,9 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
           assetType: "InvestmentFund",
           assetId: fund._id,
           type: "ISSUE",
+          // IMPORTANT: do NOT send side at all if your schema makes it required only for TRANSFER
           quantity: shares,
           pricePerShare: price,
-
           tradeRequestId: null,
           note: "Initial issuance to fund treasury on fund creation",
         },
@@ -126,7 +212,9 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
       { session }
     );
 
-    // 3) Entity log: ISSUE_SHARES
+    // =====================
+    // 4) Entity log
+    // =====================
     await InvestmentEntityLog.create(
       [
         {
@@ -135,6 +223,9 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
           actorId: req.user?._id || null,
           action: "ISSUE_SHARES",
           changes: [
+            { field: "code", before: "", after: codeClean },
+            { field: "logo", before: "", after: String(logo || "") },
+            { field: "nameAr", before: "", after: nameArClean },
             { field: "sharePrice", before: "", after: String(price) },
             { field: "initialShares", before: "", after: String(shares) },
             { field: "minInvestShare", before: "", after: String(minS) },
@@ -161,6 +252,15 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
+
+    // Handle duplicate key error for code (in case of race)
+    if (err?.code === 11000 && err?.keyPattern?.code) {
+      return res.status(400).json({
+        status: false,
+        message: "code already exists",
+      });
+    }
+
     throw err;
   }
 });
