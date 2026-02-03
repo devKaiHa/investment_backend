@@ -8,6 +8,7 @@ const investmentFundRoute = require("./InvestmentsEntity/investmentFundRoute");
 const sharesRoute = require("./shares/sharesRoute");
 const InvestmentsEntitySharedRoute = require("./InvestmentsEntity/InvestmentsEntitySharedRoute");
 const shareTradeRequestRoute = require("./shares/shareTradeRequestRoute");
+const notificationRoute = require("./utils/notificationRoute");
 
 const mountRoutes = (app) => {
   app.use("/api/auth", authRoute);
@@ -23,6 +24,9 @@ const mountRoutes = (app) => {
   app.use("/api/clientCompany", clientCompanyRoute);
   app.use("/api/applicants", applicantRoute);
   app.use("/api/shareTradeRequest", shareTradeRequestRoute);
+
+  //utils
+  app.use("/api/notifications", notificationRoute);
 };
 
 module.exports = mountRoutes;

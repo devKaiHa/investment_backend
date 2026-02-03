@@ -8,6 +8,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const investorModel = require("../../models/investorModel");
 const { default: mongoose } = require("mongoose");
+const { createNotification } = require("../utils/notificationService");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -201,6 +202,12 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
     applicant.rejectionReason = reviewStatus === "approved" ? null : msg;
 
     await applicant.save({ session });
+    await createNotification({
+      user: applicant.authUserId,
+      type: "destructive",
+      title: "PROFILE_REJECTED",
+      message: "PROFILE_REJECT_MSG",
+    });
 
     // Create investor only if approved
     if (reviewStatus === "approved") {
@@ -223,6 +230,12 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
       };
 
       await investorModel.create([investorPayload], { session });
+      await createNotification({
+        user: investorPayload.authUserId,
+        type: "success",
+        title: "PROFILE_APPROVED",
+        message: "PROFILE_APPROVE_MSG",
+      });
     }
 
     await session.commitTransaction();
