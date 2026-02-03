@@ -3,10 +3,14 @@ const {
   getSharesHoldings,
   getHolderPortfolioSummary,
 } = require("../../services/shares/shareHoldingService");
+const {
+  getShareTransactions,
+} = require("../../services/shares/shareTransactionService");
 
-const sharesHoldingRoute = express.Router();
+const sharesRoute = express.Router();
 
-sharesHoldingRoute.route("/").get(getSharesHoldings);
-sharesHoldingRoute.route("/sharesSummary").get(getHolderPortfolioSummary);
+sharesRoute.route("/transactions").get(getShareTransactions);
+sharesRoute.route("/holding").get(getSharesHoldings);
+sharesRoute.route("/sharesSummary").get(getHolderPortfolioSummary);
 
-module.exports = sharesHoldingRoute;
+module.exports = sharesRoute;

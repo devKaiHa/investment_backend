@@ -1,9 +1,10 @@
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const InvestmentEntityLog = require("../../models/InvestmentsEntity/investmentEntityLog");
-const shareHoldings = require("../../models/shares/shareHoldingSchema");
+
 const InvestmentFund = require("../../models/InvestmentsEntity/investmentFundModel");
 const ClientCompanyModel = require("../../models/InvestmentsEntity/clientCompanyModel");
+const sharesHolderModel = require("../../models/shares/sharesHolderModel");
 
 exports.getInvestmentEntityLog = asyncHandler(async (req, res) => {
   const { entityType, entityId, actorId, action } = req.query;
@@ -90,7 +91,7 @@ exports.getAllInvestmentEntities = asyncHandler(async (req, res) => {
 
   let holdingsByFundId = new Map();
   if (fundIds.length) {
-    const holdings = await shareHoldings
+    const holdings = await sharesHolderModel
       .find({
         holderType: "InvestmentFund",
         holderId: { $in: fundIds },

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const shareTradeRequestSchema = new mongoose.Schema(
+const shareTradeRequestModel = new mongoose.Schema(
   {
     investor: {
       type: mongoose.Schema.Types.ObjectId,
@@ -48,10 +48,10 @@ const shareTradeRequestSchema = new mongoose.Schema(
       enum: ["unpaid", "paid"],
       default: "unpaid",
     },
-
+    paymentConfirmationDocument: String,
     requestStatus: {
       type: String,
-      enum: ["pending", "approved", "payment_pending", "confirmed", "rejected"],
+      enum: ["pending", "approved", "check_payment", "confirmed", "rejected"],
       default: "pending",
     },
 
@@ -60,7 +60,7 @@ const shareTradeRequestSchema = new mongoose.Schema(
       default: "",
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-module.exports = mongoose.model("ShareTradeRequest", shareTradeRequestSchema);
+module.exports = mongoose.model("ShareTradeRequest", shareTradeRequestModel);

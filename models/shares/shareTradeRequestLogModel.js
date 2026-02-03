@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const shareTradeRequestLogSchema = new mongoose.Schema(
+const shareTradeRequestLogModel = new mongoose.Schema(
   {
     tradeRequest: {
       type: mongoose.Schema.Types.ObjectId,
@@ -14,16 +14,16 @@ const shareTradeRequestLogSchema = new mongoose.Schema(
       required: true,
     },
 
-    performedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-      refPath: "performedByType",
-    },
-
     performedByType: {
       type: String,
       enum: ["investors", "Employee"],
       required: true,
+    },
+
+    performedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      // required: true,
+      refPath: "performedByType",
     },
 
     previousStatus: {
@@ -41,10 +41,10 @@ const shareTradeRequestLogSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 module.exports = mongoose.model(
   "ShareTradeRequestLog",
-  shareTradeRequestLogSchema,
+  shareTradeRequestLogModel
 );

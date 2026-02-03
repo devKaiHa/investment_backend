@@ -1,6 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
-const ShareHolding = require("../../models/shares/shareHoldingSchema");
+const sharesHolderModel = require("../../models/shares/sharesHolderModel");
 
 exports.getSharesHoldings = asyncHandler(async (req, res) => {
   const {
@@ -31,7 +31,8 @@ exports.getSharesHoldings = asyncHandler(async (req, res) => {
   const skip = (pageNum - 1) * limitNum;
 
   const [data, total, summaryAgg] = await Promise.all([
-    ShareHolding.find(filter)
+    sharesHolderModel
+      .find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
@@ -42,9 +43,9 @@ exports.getSharesHoldings = asyncHandler(async (req, res) => {
       .populate({ path: "assetId", select: "fullLegalName tradeName crn" })
       .lean(),
 
-    ShareHolding.countDocuments(filter),
+    sharesHolderModel.countDocuments(filter),
 
-    ShareHolding.aggregate([
+    sharesHolderModel.aggregate([
       { $match: summaryMatch },
       {
         $group: {

@@ -1,6 +1,6 @@
 const asyncHandler = require("express-async-handler");
 const Investor = require("../models/investorModel");
-const shareTransactionSchema = require("../models/shareTransactionLog");
+// const shareTransactionSchema = require("../models/shareTransactionLog");
 const { v4: uuidv4 } = require("uuid");
 const sharp = require("sharp");
 const bcrypt = require("bcryptjs");
@@ -52,7 +52,7 @@ exports.resizeInvestorImages = asyncHandler(async (req, res, next) => {
           fileUrl: filename,
         });
       }
-    }),
+    })
   );
 
   next();
@@ -185,17 +185,17 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
     const skip = (page - 1) * limit;
 
     // FETCH TRANSACTIONS
-    const totalTransactions = await shareTransactionSchema.countDocuments({
-      investorId: investor._id,
-    });
+    // const totalTransactions = await shareTransactionSchema.countDocuments({
+    //   investorId: investor._id,
+    // });
 
-    const transactions = await shareTransactionSchema
-      .find({ investorId: investor._id })
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 })
-      .populate("counterpartyId", "fullName email")
-      .populate("investorId", "fullName email");
+    // const transactions = await shareTransactionSchema
+    //   .find({ investorId: investor._id })
+    //   .skip(skip)
+    //   .limit(limit)
+    //   .sort({ createdAt: -1 })
+    //   .populate("counterpartyId", "fullName email")
+    //   .populate("investorId", "fullName email");
 
     // RESPONSE (RAW VALUES ONLY)
     res.status(200).json({
@@ -204,7 +204,6 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
       data: {
         ...investor.toObject(),
       },
-      role: "investor",
       transactions: {
         total: totalTransactions,
         page,
@@ -302,26 +301,26 @@ exports.updateInvestorShares = asyncHandler(async (req, res) => {
   const buyerId = type === "buy" ? actor._id : counterparty._id;
   const sellerId = type === "sell" ? actor._id : counterparty._id;
 
-  await shareTransactionSchema.create([
-    {
-      investorId: buyerId,
-      counterpartyId: sellerId,
-      type: "buy",
-      shares: Number(shares),
-      sharePrice: Number(sharePrice),
-      purchaseValue,
-      description,
-    },
-    {
-      investorId: sellerId,
-      counterpartyId: buyerId,
-      type: "sell",
-      shares: Number(shares),
-      sharePrice: Number(sharePrice),
-      purchaseValue,
-      description,
-    },
-  ]);
+  // await shareTransactionSchema.create([
+  //   {
+  //     investorId: buyerId,
+  //     counterpartyId: sellerId,
+  //     type: "buy",
+  //     shares: Number(shares),
+  //     sharePrice: Number(sharePrice),
+  //     purchaseValue,
+  //     description,
+  //   },
+  //   {
+  //     investorId: sellerId,
+  //     counterpartyId: buyerId,
+  //     type: "sell",
+  //     shares: Number(shares),
+  //     sharePrice: Number(sharePrice),
+  //     purchaseValue,
+  //     description,
+  //   },
+  // ]);
 
   await actor.save();
   await counterparty.save();
@@ -342,8 +341,8 @@ const storageDisk = multer.diskStorage({
     const ext = file.mimetype.startsWith("image/")
       ? ".webp"
       : file.mimetype === "application/pdf"
-        ? ".pdf"
-        : "";
+      ? ".pdf"
+      : "";
 
     const safeFieldname = file.fieldname.replace(/[^a-zA-Z0-9_-]/g, "_");
     const filename = `Investor-${uuidv4()}-${Date.now()}-${safeFieldname}${ext}`;
@@ -441,7 +440,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
             }
           }
           return shouldKeep;
-        },
+        }
       );
     }
 
@@ -459,7 +458,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           if (existingInvestor.profileImage) {
             try {
               fs.unlinkSync(
-                path.join("uploads/Investor", existingInvestor.profileImage),
+                path.join("uploads/Investor", existingInvestor.profileImage)
               );
             } catch (err) {
               console.warn("Failed to delete old profile image:", err.message);
@@ -468,7 +467,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           existingInvestor.profileImage = file.filename;
         } else {
           const index = existingInvestor.attachments.findIndex(
-            (att) => att.key === key,
+            (att) => att.key === key
           );
           const newFile = { key, fileUrl: file.filename };
 
@@ -478,8 +477,8 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
               fs.unlinkSync(
                 path.join(
                   "uploads/Investor",
-                  existingInvestor.attachments[index].fileUrl,
-                ),
+                  existingInvestor.attachments[index].fileUrl
+                )
               );
             } catch (err) {
               console.warn("Failed to delete old attachment:", err.message);
@@ -494,7 +493,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
 
     await authUserModel.findOneAndUpdate(
       { _id: req.params.id },
-      { phone: req.body.phone },
+      { phone: req.body.phone }
     );
     const updatedInvestor = await existingInvestor.save();
 

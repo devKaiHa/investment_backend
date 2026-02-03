@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const asyncHandler = require("express-async-handler");
 const InvestmentFund = require("../../models/InvestmentsEntity/investmentFundModel");
-const Holding = require("../../models/shares/shareHoldingSchema");
+const Holding = require("../../models/shares/sharesHolderModel");
+const SharesTransaction = require("../../models/shares/shareTransactionModel");
 const InvestmentEntityLog = require("../../models/InvestmentsEntity/investmentEntityLog");
 
 exports.createInvestmentFund = asyncHandler(async (req, res) => {
@@ -105,6 +106,24 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
       },
       { $set: { shares } },
       { upsert: true, session }
+    );
+
+    await SharesTransaction.create(
+      [
+        {
+          holderType: "InvestmentFund",
+          holderId: fund._id,
+          assetType: "InvestmentFund",
+          assetId: fund._id,
+          type: "ISSUE",
+          quantity: shares,
+          pricePerShare: price,
+
+          tradeRequestId: null,
+          note: "Initial issuance to fund treasury on fund creation",
+        },
+      ],
+      { session }
     );
 
     // 3) Entity log: ISSUE_SHARES
@@ -309,7 +328,6 @@ exports.getAllInvestmentFunds = asyncHandler(async (req, res) => {
 // GET /investment-funds/:id
 exports.getOneInvestmentFund = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  console.log("ss");
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ status: false, message: "Invalid fund id" });
   }

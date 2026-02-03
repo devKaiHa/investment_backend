@@ -6,7 +6,8 @@ const {
   getTradeRequestById,
   updateTradeRequest,
   deleteTradeRequest,
-} = require("../../services/shares/sharePurchaseRequestService");
+  confirmTradeRequest,
+} = require("../../services/shares/shareTradeRequestService");
 
 const shareTradeRequestRoute = express.Router();
 shareTradeRequestRoute
@@ -20,5 +21,6 @@ shareTradeRequestRoute
   .get(getTradeRequestById)
   .put(updateTradeRequest)
   .delete(deleteTradeRequest);
+shareTradeRequestRoute.route("/confirm/:id").post(confirmTradeRequest);
 
 module.exports = shareTradeRequestRoute;

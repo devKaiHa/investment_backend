@@ -12,9 +12,8 @@ const {
 } = require("../../utils/helpers");
 const clientRequest = require("../../models/onbording/clientRequestModel");
 const Investor = require("../../models/investorModel");
-const InvestorHolding = require("../../models/shares/shareHoldingSchema");
 const { default: mongoose } = require("mongoose");
-const shareTransactionLog = require("../../models/shareTransactionLog");
+const sharesHolderModel = require("../../models/shares/sharesHolderModel");
 
 // Multer
 const storage = multer.memoryStorage();
@@ -686,7 +685,7 @@ exports.updateInvestInfo = asyncHandler(async (req, res) => {
           const invId = investorIdByNationalId.get(String(o.nationalId).trim());
           const shares = Number(o.initialShares || 0);
 
-          return InvestorHolding.updateOne(
+          return sharesHolderModel.updateOne(
             { investor: invId, company: company._id },
             { $set: { shares } },
             { upsert: true, session }
@@ -719,9 +718,9 @@ exports.updateInvestInfo = asyncHandler(async (req, res) => {
         })
         .filter(Boolean);
 
-      if (logs.length > 0) {
-        await shareTransactionLog.insertMany(logs, { session });
-      }
+      // if (logs.length > 0) {
+      //   await shareTransactionLog.insertMany(logs, { session });
+      // }
 
       company.shareIssued = true;
     }

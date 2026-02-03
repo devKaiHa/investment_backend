@@ -1,7 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const investmentCompanies = require("../models/investmentCompaniesModel");
 const Investor = require("../models/investorModel");
-const shareTransactionSchema = require("../models/shareTransactionLog");
+// const shareTransactionSchema = require("../models/shareTransactionLog");
 const { v4: uuidv4 } = require("uuid");
 const sharp = require("sharp");
 const { uploadSingleImage } = require("../middlewares/uploadingImage");
@@ -183,13 +183,13 @@ exports.updateInvestmentCompanies = asyncHandler(async (req, res, next) => {
           );
 
           // Create a transaction record
-          await shareTransactionSchema.create({
-            investorId,
-            type: "buy",
-            shares: Number(shares),
-            sharePrice: Number(req.body.sharePrice),
-            companyId,
-          });
+          // await shareTransactionSchema.create({
+          //   investorId,
+          //   type: "buy",
+          //   shares: Number(shares),
+          //   sharePrice: Number(req.body.sharePrice),
+          //   companyId,
+          // });
         })
       );
     }
