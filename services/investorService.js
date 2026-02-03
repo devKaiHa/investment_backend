@@ -204,6 +204,7 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
       data: {
         ...investor.toObject(),
       },
+      role: "investor",
       transactions: {
         total: totalTransactions,
         page,

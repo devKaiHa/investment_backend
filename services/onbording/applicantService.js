@@ -182,7 +182,7 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
     const applicant = await Applicant.findOne(
       { authUserId: req.params.id },
       null,
-      { session }
+      { session },
     );
 
     if (!applicant) {
@@ -305,6 +305,7 @@ exports.getOneApplicant = asyncHandler(async (req, res, next) => {
       status: true,
       message: "success",
       data: applicant,
+      role: "applicant",
     });
   } catch (error) {
     console.error(`Error fetching applicant: ${error.message}`);
