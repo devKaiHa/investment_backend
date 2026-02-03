@@ -5,6 +5,8 @@ const mongoose = require("mongoose");
 const sharesHolderModel = require("../../models/shares/sharesHolderModel");
 const shareTradeRequestLogModel = require("../../models/shares/shareTradeRequestLogModel");
 const shareTransactionModel = require("../../models/shares/shareTransactionModel");
+const { createNotification } = require("../utils/notificationService");
+const investorModel = require("../../models/investorModel");
 
 /**
  * @desc Create share trade request (buy / sell)
@@ -42,7 +44,6 @@ exports.getInvestorTradeRequests = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, sort = "-createdAt" } = req.query;
   const skip = (page - 1) * limit;
 
-  console.log(req.query);
   const query = { investor: req.params.id };
 
   const [data, total] = await Promise.all([
@@ -139,7 +140,6 @@ exports.getTradeRequestById = asyncHandler(async (req, res) => {
   const request = await ShareTradeRequest.findById(req.params.id)
     .populate("investor", "_id fullName phone")
     .populate("source", "_id fullLegalName");
-  console.log(request);
   const logs = await shareTradeRequestLogModel
     .find({
       tradeRequest: req.params.id,
@@ -186,6 +186,14 @@ exports.updateTradeRequest = asyncHandler(async (req, res) => {
     return res.status(400).json({
       status: false,
       message: "Confirmed trade requests cannot be edited",
+    });
+  }
+
+  const investorObj = await investorModel.findById(request.investor._id);
+  if (!investorObj) {
+    return res.status(404).json({
+      status: false,
+      message: "No user found with the ID associated with that request",
     });
   }
 
@@ -260,6 +268,19 @@ exports.updateTradeRequest = asyncHandler(async (req, res) => {
       ? statusToAction[request.requestStatus] || "updated"
       : "updated";
 
+  await createNotification({
+    user: investorObj.authUserId,
+    type: "warning",
+    title: "SHARES_REQUEST_UPDATED",
+    message: "SHARES_REQUEST_UPDATE_MSG",
+    meta: {
+      tradeId: request._id,
+      reason: request.rejectionReason ?? "",
+      previousStatus: previousStatus,
+      newStatus: request.requestStatus,
+    },
+  });
+
   await shareTradeRequestLogModel.create({
     tradeRequest: request._id,
     action,
@@ -286,10 +307,9 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
 
     // IMPORTANT: send userId from client in body
     const performedByUserId = req.body.userId;
-    console.log(requestId);
-    const request = await ShareTradeRequest.findById(requestId).session(
-      session
-    );
+
+    const request =
+      await ShareTradeRequest.findById(requestId).session(session);
     if (!request) {
       await session.abortTransaction();
       return res
@@ -314,6 +334,14 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
       return res.status(400).json({
         status: false,
         message: `Cannot confirm from status: ${request.requestStatus}`,
+      });
+    }
+
+    const investorObj = await investorModel.findById(request.investor._id);
+    if (!investorObj) {
+      return res.status(404).json({
+        status: false,
+        message: "No user found with the ID associated with that request",
       });
     }
 
@@ -367,7 +395,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         assetId,
       },
       { $setOnInsert: { shares: 0 } },
-      { upsert: true, session }
+      { upsert: true, session },
     );
 
     await sharesHolderModel.updateOne(
@@ -378,7 +406,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         assetId,
       },
       { $setOnInsert: { shares: 0 } },
-      { upsert: true, session }
+      { upsert: true, session },
     );
 
     /**
@@ -396,7 +424,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         shares: { $gte: qty },
       },
       { $inc: { shares: -qty } },
-      { session }
+      { session },
     );
 
     if (decRes.matchedCount === 0) {
@@ -409,7 +437,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
             assetType,
             assetId,
           },
-          { shares: 1 }
+          { shares: 1 },
         )
         .session(session);
 
@@ -433,7 +461,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         assetId,
       },
       { $inc: { shares: qty } },
-      { session }
+      { session },
     );
 
     /**
@@ -466,7 +494,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
           note: "Confirmed trade - investor bought shares",
         },
       ],
-      { session }
+      { session },
     );
 
     const sellTx = txDocs[0];
@@ -497,8 +525,21 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
           note: req.body.note || "",
         },
       ],
-      { session }
+      { session },
     );
+
+    await createNotification({
+      user: investorObj.authUserId,
+      type: "success",
+      title: "SHARES_REQUEST_CONFIRMED",
+      message: "SHARES_REQUEST_CONFIRM_MSG",
+      meta: {
+        tradeId: request._id,
+        reason: request.rejectionReason ?? "",
+        previousStatus: previousStatus,
+        newStatus: request.requestStatus,
+      },
+    });
 
     await session.commitTransaction();
 

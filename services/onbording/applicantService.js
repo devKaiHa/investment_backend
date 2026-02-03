@@ -202,12 +202,14 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
     applicant.rejectionReason = reviewStatus === "approved" ? null : msg;
 
     await applicant.save({ session });
-    await createNotification({
-      user: applicant.authUserId,
-      type: "destructive",
-      title: "PROFILE_REJECTED",
-      message: "PROFILE_REJECT_MSG",
-    });
+    if (reviewStatus === "rejected") {
+      await createNotification({
+        user: applicant.authUserId,
+        type: "destructive",
+        title: "PROFILE_REJECTED",
+        message: "PROFILE_REJECT_MSG",
+      });
+    }
 
     // Create investor only if approved
     if (reviewStatus === "approved") {
