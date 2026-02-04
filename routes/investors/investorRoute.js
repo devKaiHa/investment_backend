@@ -9,13 +9,13 @@ const {
   uploadInvestorImages,
   uploadInvestorImagesDisk,
   processInvestorFiles,
-} = require("../services/investorService");
+} = require("../../services/investors/investorService");
 const {
   investorLogin,
   investorRegister,
   investorLogout,
   protectInvestor,
-} = require("../services/investorAuthService");
+} = require("../../services/investors/investorAuthService");
 
 const investorRoute = express.Router();
 

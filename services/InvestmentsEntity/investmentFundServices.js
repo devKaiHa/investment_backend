@@ -43,7 +43,7 @@ exports.processFundLogo = async (req, res, next) => {
       .toFile(uploadPath);
 
     // 2) OR store relative path (often easier when serving static):
-    req.body.logo = `${uploadDir}/${filename}`;
+    req.body.logo = `${filename}`;
 
     return next();
   } catch (err) {

@@ -1,5 +1,5 @@
 const investmentCompaniesRoute = require("./InvestmentsEntity/investmentCompaniesRoute");
-const investorRoute = require("./investorRoute");
+const investorRoute = require("./investors/investorRoute");
 const authRoute = require("./auth/authRoute");
 const companyInfoRoute = require("./companyInfoRoute");
 const clientCompanyRoute = require("./onbording/clientCompanyRoute");
