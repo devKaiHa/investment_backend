@@ -84,7 +84,6 @@ exports.investorLogin = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     status: true,
     token: signToken(authUser, sessionId),
-    role: investor ? "investor" : "applicant",
     user: authUserSafe,
     profile: investor || applicant,
   });
