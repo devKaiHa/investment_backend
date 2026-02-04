@@ -61,10 +61,11 @@ const applicantSchema = new mongoose.Schema(
         walletQr: String,
       },
     },
+    role: { type: String, default: "applicant" },
 
     deletable: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("applicant", applicantSchema);

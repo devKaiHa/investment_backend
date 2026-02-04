@@ -61,6 +61,7 @@ const investorSchema = new mongoose.Schema(
         walletQr: String,
       },
     },
+    role: { type: String, default: "investor" },
   },
   { timestamps: true },
 );

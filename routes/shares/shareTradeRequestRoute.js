@@ -7,7 +7,12 @@ const {
   updateTradeRequest,
   deleteTradeRequest,
   confirmTradeRequest,
+  uploadPaymentDoc,
+  uploadPaymentConfirmation,
 } = require("../../services/shares/shareTradeRequestService");
+const {
+  processPaymentConfirmation,
+} = require("../../middlewares/uploadPaymentDocMiddleware");
 
 const shareTradeRequestRoute = express.Router();
 shareTradeRequestRoute
@@ -21,6 +26,13 @@ shareTradeRequestRoute
   .get(getTradeRequestById)
   .put(updateTradeRequest)
   .delete(deleteTradeRequest);
+shareTradeRequestRoute
+  .route("/:id/payment-doc")
+  .patch(
+    uploadPaymentConfirmation,
+    processPaymentConfirmation,
+    uploadPaymentDoc,
+  );
 shareTradeRequestRoute.route("/confirm/:id").post(confirmTradeRequest);
 
 module.exports = shareTradeRequestRoute;

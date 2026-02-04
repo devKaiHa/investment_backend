@@ -7,6 +7,16 @@ const shareTradeRequestLogModel = require("../../models/shares/shareTradeRequest
 const shareTransactionModel = require("../../models/shares/shareTransactionModel");
 const { createNotification } = require("../utils/notificationService");
 const investorModel = require("../../models/investorModel");
+const multer = require("multer");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+});
+
+exports.uploadPaymentConfirmation = upload.single(
+  "paymentConfirmationDocument",
+);
 
 /**
  * @desc Create share trade request (buy / sell)
@@ -44,7 +54,10 @@ exports.getInvestorTradeRequests = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, sort = "-createdAt" } = req.query;
   const skip = (page - 1) * limit;
 
-  const query = { investor: req.params.id };
+  const query = {
+    investor: req.params.id,
+    requestStatus: { $ne: "confirmed" },
+  };
 
   const [data, total] = await Promise.all([
     ShareTradeRequest.find(query)
@@ -294,6 +307,73 @@ exports.updateTradeRequest = asyncHandler(async (req, res) => {
   res.status(200).json({
     status: true,
     message: "success",
+    data: request,
+  });
+});
+
+/**
+ * @desc Upload trade request payment document
+ * @route PATCH /api/:id/payment-doc
+ * @access Private (Investor)
+ */
+exports.uploadPaymentDoc = asyncHandler(async (req, res) => {
+  const request = await ShareTradeRequest.findById(req.params.id);
+
+  if (!request) {
+    return res.status(404).json({
+      status: false,
+      message: "Trade request not found",
+    });
+  }
+
+  // Allow only approved requests
+  if (request.requestStatus !== "approved") {
+    return res.status(400).json({
+      status: false,
+      message:
+        "Cannot upload payment document before an admin approves the request",
+    });
+  }
+
+  // Prevent double action
+  if (request.requestStatus === "check_payment") {
+    return res.status(400).json({
+      status: false,
+      message: "This request already have a file uploaded",
+    });
+  }
+
+  // Validate investor
+  const investorId = request.investor?._id || request.investor;
+  const investorObj = await investorModel.findById(investorId);
+
+  if (!investorObj) {
+    return res.status(404).json({
+      status: false,
+      message: "No investor found with the ID associated with that request",
+    });
+  }
+
+  const previousStatus = request.requestStatus;
+
+  request.paymentConfirmationDocument = req.body.paymentConfirmationDocument;
+  request.requestStatus = "check_payment";
+
+  await request.save();
+
+  // Log
+  await shareTradeRequestLogModel.create({
+    tradeRequest: request._id,
+    action: "updated",
+    performedBy: req.body.userId,
+    performedByType: "investors",
+    previousStatus,
+    newStatus: request.requestStatus,
+    note: "Payment confirmation document uploaded",
+  });
+  res.status(200).json({
+    status: true,
+    message: "Payment confirmation uploaded successfully",
     data: request,
   });
 });
@@ -559,6 +639,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
     session.endSession();
   }
 });
+
 /**
  * @desc Delete trade request
  * @route DELETE /api/trade-requests/:id

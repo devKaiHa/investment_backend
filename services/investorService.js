@@ -205,7 +205,7 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
       data: {
         ...investor.toObject(),
       },
-      transactions: {
+      /*transactions: {
         total: totalTransactions,
         page,
         limit,
@@ -213,7 +213,7 @@ exports.getOneInvestor = asyncHandler(async (req, res) => {
         items: transactions.map((t) => ({
           ...t.toObject(),
         })),
-      },
+      },*/
     });
   } catch (error) {
     console.error(`Error fetching investor: ${error.message}`);
