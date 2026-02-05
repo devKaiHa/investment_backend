@@ -52,11 +52,11 @@ exports.investorLogin = asyncHandler(async (req, res, next) => {
   const passMatch = await bcrypt.compare(password, authUser.password);
   if (!passMatch) return next(new ApiError("Invalid credentials", 401));
 
-  if (authUser.activeSessionId) {
-    const age = Date.now() - new Date(authUser.sessionStartedAt).getTime();
-    if (age < SESSION_MAX_AGE)
-      return next(new ApiError("Already logged in", 403));
-  }
+  // if (authUser.activeSessionId) {
+  //   const age = Date.now() - new Date(authUser.sessionStartedAt).getTime();
+  //   if (age < SESSION_MAX_AGE)
+  //     return next(new ApiError("Already logged in", 403));
+  // }
 
   // Create session
   const sessionId = crypto.randomUUID();
