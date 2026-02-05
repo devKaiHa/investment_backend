@@ -9,6 +9,7 @@ const sharesRoute = require("./shares/sharesRoute");
 const InvestmentsEntitySharedRoute = require("./InvestmentsEntity/InvestmentsEntitySharedRoute");
 const shareTradeRequestRoute = require("./shares/shareTradeRequestRoute");
 const notificationRoute = require("./utils/notificationRoute");
+const profileRoute = require("./utils/profileRoute");
 
 const mountRoutes = (app) => {
   app.use("/api/auth", authRoute);
@@ -27,6 +28,7 @@ const mountRoutes = (app) => {
 
   //utils
   app.use("/api/notifications", notificationRoute);
+  app.use("/api/profile", profileRoute);
 };
 
 module.exports = mountRoutes;

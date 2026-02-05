@@ -10,7 +10,10 @@ const { generatePassword, sendEmail } = require("../../utils/helpers");
 const { default: mongoose } = require("mongoose");
 const applicantModel = require("../../models/onbording/applicantModel");
 const authUserModel = require("../../models/auth/authUserModel");
+const ShareTransaction = require("../../models/shares/shareTransactionModel");
+const InvestmentFund = require("../../models/InvestmentsEntity/investmentFundModel");
 const { createNotification } = require("../utils/notificationService");
+const ApiError = require("../../utils/apiError");
 
 //for creating
 const storage = multer.memoryStorage();
@@ -163,6 +166,187 @@ exports.getAllInvestors = asyncHandler(async (req, res) => {
       message: error.message,
     });
   }
+});
+
+/**
+ * Weighted Average Cost portfolio builder
+ * - BUY: increases qty and totalCost
+ * - SELL: decreases qty and reduces totalCost by avgCost (realizedPnL tracked)
+ */
+function buildPortfolioAverageCost(transactions, fundById) {
+  const map = new Map(); // assetId -> stats
+
+  const getStats = (assetId) => {
+    if (!map.has(assetId)) {
+      map.set(assetId, {
+        assetId,
+        qty: 0,
+        totalCost: 0, // cost basis of remaining position
+        avgCost: 0,
+        realizedPnL: 0,
+      });
+    }
+    return map.get(assetId);
+  };
+
+  for (const tx of transactions) {
+    const assetId = String(tx.assetId);
+    const stats = getStats(assetId);
+
+    const qty = Number(tx.quantity || 0);
+    const price = Number(tx.pricePerShare || 0);
+
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    if (!Number.isFinite(price) || price < 0) continue;
+
+    if (tx.side === "buy") {
+      stats.qty += qty;
+      stats.totalCost += qty * price;
+      stats.avgCost = stats.qty > 0 ? stats.totalCost / stats.qty : 0;
+      continue;
+    }
+
+    if (tx.side === "sell") {
+      const sellQty = Math.min(qty, stats.qty); // safety guard
+      if (sellQty <= 0) continue;
+
+      const costRemoved = sellQty * stats.avgCost;
+
+      stats.qty -= sellQty;
+      stats.totalCost -= costRemoved;
+      stats.realizedPnL += sellQty * (price - stats.avgCost);
+
+      if (stats.qty <= 0) {
+        stats.qty = 0;
+        stats.totalCost = 0;
+        stats.avgCost = 0;
+      }
+    }
+  }
+
+  const assets = [];
+  let totalValue = 0;
+  let totalInvested = 0;
+  let totalUnrealizedPnL = 0;
+  let totalRealizedPnL = 0;
+
+  for (const s of map.values()) {
+    const fund = fundById.get(String(s.assetId));
+    const currentPrice = Number(fund?.sharePrice || 0);
+
+    const value = s.qty * currentPrice;
+    const invested = s.totalCost;
+    const pnl = value - invested;
+
+    totalValue += value;
+    totalInvested += invested;
+    totalUnrealizedPnL += pnl;
+    totalRealizedPnL += s.realizedPnL;
+
+    assets.push({
+      assetType: "InvestmentFund",
+      assetId: s.assetId,
+
+      // fund meta for the UI card
+      fund: fund
+        ? {
+            _id: fund._id,
+            fullLegalName: fund.fullLegalName,
+            code: fund.code,
+            logo: fund.logo,
+            sharePrice: fund.sharePrice,
+            active: fund.active,
+          }
+        : null,
+
+      // position stats
+      shares: s.qty,
+      avgPrice: s.avgCost,
+      currentPrice,
+      value,
+      invested,
+      pnl,
+
+      // optional
+      realizedPnL: s.realizedPnL,
+    });
+  }
+
+  // Sort nice (largest position first)
+  assets.sort((a, b) => (b.value || 0) - (a.value || 0));
+
+  return {
+    summary: {
+      totalValue,
+      totalInvested,
+      pnl: totalUnrealizedPnL, // matches your "pnl" card
+      realizedPnL: totalRealizedPnL, // optional for later
+    },
+    assets,
+  };
+}
+
+/**
+ * GET /api/portfolio/investor/:holderId
+ * Query:
+ *   assetType=InvestmentFund (optional default)
+ * Response:
+ *   { summary, assets }
+ */
+exports.getInvestorPortfolio = asyncHandler(async (req, res, next) => {
+  const { holderId } = req.params;
+  console.log(req.params);
+  console.log("holderId", req.params);
+  if (!mongoose.isValidObjectId(holderId)) {
+    return next(new ApiError("Invalid holderId", 400));
+  }
+
+  // For now you want funds only (like your cards)
+  const assetType = req.query.assetType || "InvestmentFund";
+
+  if (assetType !== "InvestmentFund") {
+    return next(new ApiError("Only InvestmentFund is supported for now", 400));
+  }
+
+  // 1) Load all transactions for this holder + fund assets
+  const txs = await ShareTransaction.find({
+    holderType: "investors",
+    holderId,
+    assetType: "InvestmentFund",
+  })
+    .select("assetId side quantity pricePerShare createdAt")
+    .sort({ createdAt: 1 })
+    .lean();
+
+  // If no tx, return empty portfolio
+  if (!txs.length) {
+    return res.status(200).json({
+      status: true,
+      message: "success",
+      data: {
+        summary: { totalValue: 0, totalInvested: 0, pnl: 0, realizedPnL: 0 },
+        assets: [],
+      },
+    });
+  }
+
+  // 2) Fetch funds used in these transactions (for price + name + logo)
+  const assetIds = [...new Set(txs.map((t) => String(t.assetId)))];
+
+  const funds = await InvestmentFund.find({ _id: { $in: assetIds } })
+    .select("fullLegalName code logo sharePrice active")
+    .lean();
+
+  const fundById = new Map(funds.map((f) => [String(f._id), f]));
+
+  // 3) Compute portfolio
+  const portfolio = buildPortfolioAverageCost(txs, fundById);
+
+  return res.status(200).json({
+    status: true,
+    message: "success",
+    data: portfolio,
+  });
 });
 
 // @desc Get one Investor

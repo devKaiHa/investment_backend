@@ -9,6 +9,7 @@ const {
   uploadInvestorImages,
   uploadInvestorImagesDisk,
   processInvestorFiles,
+  getInvestorPortfolio,
 } = require("../../services/investors/investorService");
 const {
   investorLogin,
@@ -33,5 +34,7 @@ investorRoute
   .put(uploadInvestorImagesDisk, processInvestorFiles, updateInvestor)
   .get(getOneInvestor)
   .delete(deleteInvestor);
+
+investorRoute.route("/portfolio/:holderId").get(getInvestorPortfolio);
 
 module.exports = investorRoute;
