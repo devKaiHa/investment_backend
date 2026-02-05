@@ -180,11 +180,9 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
       });
     }
 
-    const applicant = await Applicant.findOne(
-      { authUserId: req.params.id },
-      null,
-      { session }
-    );
+    const applicant = await Applicant.findOne({ _id: req.params.id }, null, {
+      session,
+    });
 
     if (!applicant) {
       await session.abortTransaction();
