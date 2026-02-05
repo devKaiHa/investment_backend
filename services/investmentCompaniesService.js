@@ -46,7 +46,7 @@ exports.resizeInvestmentCompaniesImages = asyncHandler(
     }
 
     next();
-  }
+  },
 );
 
 // @desc Create investmentCompanies
@@ -153,7 +153,7 @@ exports.updateInvestmentCompanies = asyncHandler(async (req, res, next) => {
         {
           new: true,
           runValidators: true,
-        }
+        },
       );
 
     if (!updatedInvestmentCompanies) {
@@ -179,7 +179,7 @@ exports.updateInvestmentCompanies = asyncHandler(async (req, res, next) => {
                 deletable: false,
               },
             },
-            { new: true, upsert: false }
+            { new: true, upsert: false },
           );
 
           // Create a transaction record
@@ -190,7 +190,7 @@ exports.updateInvestmentCompanies = asyncHandler(async (req, res, next) => {
           //   sharePrice: Number(req.body.sharePrice),
           //   companyId,
           // });
-        })
+        }),
       );
     }
 
@@ -266,7 +266,7 @@ exports.deleteCompanyBank = asyncHandler(async (req, res) => {
         bankQR: { _id: bankQRId },
       },
     },
-    { new: true }
+    { new: true },
   );
 
   if (!updatedCompany) {
@@ -308,7 +308,7 @@ exports.updateCompanyBank = asyncHandler(async (req, res) => {
         "bankQR._id": bankQRId,
       },
       { $set: update },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedCompany) {

@@ -1,26 +1,16 @@
 const mongoose = require("mongoose");
+const { paymentMethodSchema } = require("./paymentMethodsModel");
 
 const companyIfnoSchema = new mongoose.Schema(
   {
-    companyName: {
-      type: String,
-      minlength: [3, "Name is too short"],
-    },
+    companyName: { type: String, minlength: 3 },
     companyAddress: String,
     companyTax: String,
     companyEmail: String,
     companyTel: String,
-    companyLogo: {
-      type: String,
-      default: `defaultLogo.png`,
-    },
-    bankQR: [
-      {
-        name: { type: String, default: "" },
-        accountNumber: { type: String, default: "" },
-        qrCode: { type: String, default: "" },
-      },
-    ],
+    companyLogo: { type: String, default: "defaultLogo.png" },
+
+    paymentMethods: [paymentMethodSchema],
   },
   { timestamps: true },
 );

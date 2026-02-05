@@ -5,17 +5,14 @@ const {
   resizerLogo,
   getCompanyInfo,
   updataCompanyInfo,
-  updateCompanyBank,
-  deleteCompanyBank,
-  addCompanyBankQR,
+  deleteCompanyPaymentMethod,
+  updateCompanyPaymentMethod,
+  addCompanyPaymentMethod,
+  uploadPaymentMethodImages,
+  resizePaymentMethodImages,
 } = require("../services/companyInfoService");
 
 const authService = require("../services/auth/authService");
-const {
-  uploadInvestmentCompaniesImages,
-  resizeInvestmentCompaniesImages,
-} = require("../services/investmentCompaniesService");
-
 const companyInfoRoute = express.Router();
 
 companyInfoRoute
@@ -27,19 +24,20 @@ companyInfoRoute
   .put(authService.protect, uploadCompanyLogo, resizerLogo, updataCompanyInfo);
 
 companyInfoRoute
-  .route("/:id/bank-qr/:bankQRId")
-  .put(
-    uploadInvestmentCompaniesImages,
-    resizeInvestmentCompaniesImages,
-    updateCompanyBank
-  )
-  .delete(deleteCompanyBank);
+  .route("/:id/payment-method")
+  .post(
+    uploadPaymentMethodImages,
+    resizePaymentMethodImages,
+    addCompanyPaymentMethod,
+  );
 
 companyInfoRoute
-  .route("/:id/bank-qr")
-  .post(
-    uploadInvestmentCompaniesImages,
-    resizeInvestmentCompaniesImages,
-    addCompanyBankQR
-  );
+  .route("/:id/payment-method/:paymentMethodId")
+  .put(
+    uploadPaymentMethodImages,
+    resizePaymentMethodImages,
+    updateCompanyPaymentMethod,
+  )
+  .delete(deleteCompanyPaymentMethod);
+
 module.exports = companyInfoRoute;

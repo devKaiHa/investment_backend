@@ -5,12 +5,13 @@ const ApiError = require("../utils/apiError");
 const { v4: uuidv4 } = require("uuid");
 const sharp = require("sharp");
 const employeeModel = require("../models/employeeModel");
-const multerStorage = multer.memoryStorage();
 const bcrypt = require("bcryptjs");
 const { default: axios } = require("axios");
 const { generatePassword, sendEmail } = require("../utils/helpers");
-const mongoose = require("mongoose");
+const fs = require("fs");
+const path = require("path");
 
+const multerStorage = multer.memoryStorage();
 const multerFilter = function (req, file, cb) {
   if (file.mimetype.startsWith("image")) {
     cb(null, true);
@@ -18,11 +19,13 @@ const multerFilter = function (req, file, cb) {
     cb(new ApiError("Only images allowed", 400), false);
   }
 };
-
-const upload = multer({ storage: multerStorage, fileFilter: multerFilter });
+const upload = multer({
+  storage: multerStorage,
+  fileFilter: multerFilter,
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
 
 exports.uploadCompanyLogo = upload.single("companyLogo");
-
 exports.resizerLogo = asyncHandler(async (req, res, next) => {
   const filename = `company-${uuidv4()}-${Date.now()}.png`;
 
@@ -36,6 +39,81 @@ exports.resizerLogo = asyncHandler(async (req, res, next) => {
 
   next();
 });
+
+exports.uploadPaymentMethodImages = upload.fields([
+  { name: "shamCashQr", maxCount: 1 },
+  { name: "usdtWalletQr", maxCount: 1 },
+  { name: "bankQr", maxCount: 1 },
+]);
+exports.resizePaymentMethodImages = async (req, res, next) => {
+  try {
+    if (!req.files) return next();
+
+    const uploadDir = "uploads/companyinfo/payment-methods";
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+
+    // SHAM CASH QR
+    if (req.files.shamCashQr?.[0]) {
+      const filename = `shamcash-qr-${uuidv4()}.webp`;
+      const uploadPath = path.join(uploadDir, filename);
+
+      await sharp(req.files.shamCashQr[0].buffer)
+        .rotate()
+        .resize({ width: 600, height: 600, fit: "inside" })
+        .webp({ quality: 85 })
+        .toFile(uploadPath);
+
+      // Inject into body so service saves it
+      req.body.shamCash = {
+        ...(req.body.shamCash || {}),
+        qrCode: filename,
+      };
+    }
+
+    // USDT QR
+    if (req.files.usdtWalletQr?.[0]) {
+      const filename = `usdt-qr-${uuidv4()}.webp`;
+      const uploadPath = path.join(uploadDir, filename);
+
+      await sharp(req.files.usdtWalletQr[0].buffer)
+        .rotate()
+        .resize({ width: 600, height: 600, fit: "inside" })
+        .webp({ quality: 85 })
+        .toFile(uploadPath);
+
+      req.body.usdt = {
+        ...(req.body.usdt || {}),
+        walletQr: filename,
+      };
+    }
+
+    // BANK QR
+    if (req.files.bankQr?.[0]) {
+      const filename = `bank-qr-${uuidv4()}.webp`;
+      const uploadPath = path.join(uploadDir, filename);
+
+      await sharp(req.files.bankQr[0].buffer)
+        .rotate()
+        .resize({ width: 600, height: 600, fit: "inside" })
+        .webp({ quality: 85 })
+        .toFile(uploadPath);
+
+      // Inject into body so service saves it
+      req.body.bank = {
+        ...(req.body.bank || {}),
+        qrCode: filename,
+      };
+    }
+
+    next();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "Failed to process QR images",
+    });
+  }
+};
 
 //@desc Create company info
 //@route POST /api/companyinfo
@@ -62,7 +140,7 @@ exports.createCompanyInfo = asyncHandler(async (req, res, next) => {
     try {
       await axios.post(
         `${process.env.JOBS_URL}api/auth/createEmployee`,
-        payload
+        payload,
       );
     } catch (err) {
       console.error("Failed to sync employee:", err.message);
@@ -76,7 +154,7 @@ exports.createCompanyInfo = asyncHandler(async (req, res, next) => {
   } else {
     await employeeModel.findOneAndUpdate(
       { email: req.body.email },
-      { companyId: companyInfo._id }
+      { companyId: companyInfo._id },
     );
   }
 
@@ -107,7 +185,7 @@ exports.updataCompanyInfo = asyncHandler(async (req, res, next) => {
     const companyInfo = await CompanyInfnoModel.findByIdAndUpdate(
       { _id: id },
       req.body,
-      { new: true }
+      { new: true },
     );
 
     if (!companyInfo) {
@@ -124,128 +202,93 @@ exports.updataCompanyInfo = asyncHandler(async (req, res, next) => {
   }
 });
 
-exports.deleteCompanyBank = asyncHandler(async (req, res) => {
-  const { id, bankQRId } = req.params;
+exports.deleteCompanyPaymentMethod = asyncHandler(async (req, res) => {
+  const { id, paymentMethodId } = req.params;
 
-  if (!bankQRId) {
-    return res.status(400).json({
-      status: false,
-      message: "companyId and bankQRId are required",
-    });
-  }
-
-  const updatedCompany = await CompanyInfnoModel.findOneAndUpdate(
-    { _id: id },
+  const updatedCompany = await CompanyInfnoModel.findByIdAndUpdate(
+    id,
     {
       $pull: {
-        bankQR: { _id: new mongoose.Types.ObjectId(bankQRId) },
+        paymentMethods: { _id: paymentMethodId },
       },
     },
-    { new: true }
+    { new: true },
   );
 
   if (!updatedCompany) {
     return res.status(404).json({
       status: false,
-      message: "Investment company or Bank QR not found",
+      message: "Company or payment method not found",
     });
   }
 
   res.status(200).json({
     status: true,
-    message: "Bank QR deleted successfully",
+    message: "Payment method deleted successfully",
   });
 });
 
-exports.updateCompanyBank = asyncHandler(async (req, res) => {
-  const { id, bankQRId } = req.params;
-  const { companyId } = req.query;
-
-  if (!companyId) {
-    return res.status(400).json({ message: "companyId is required" });
-  }
+exports.updateCompanyPaymentMethod = asyncHandler(async (req, res) => {
+  const { id, paymentMethodId } = req.params;
 
   const update = {};
+  const allowedFields = ["bank", "shamCash", "usdt"];
 
-  if (req.body.name !== undefined) update["bankQR.$.name"] = req.body.name;
-
-  if (req.body.accountNumber !== undefined)
-    update["bankQR.$.accountNumber"] = req.body.accountNumber;
-
-  if (req.body.qrCode !== undefined)
-    update["bankQR.$.qrCode"] = req.body.qrCode;
+  allowedFields.forEach((field) => {
+    if (req.body[field]) {
+      Object.keys(req.body[field]).forEach((key) => {
+        update[`paymentMethods.$.${field}.${key}`] = req.body[field][key];
+      });
+    }
+  });
 
   const updatedCompany = await CompanyInfnoModel.findOneAndUpdate(
     {
       _id: id,
-      "bankQR._id": new mongoose.Types.ObjectId(bankQRId),
+      "paymentMethods._id": paymentMethodId,
     },
     { $set: update },
-    { new: true }
+    { new: true },
   );
 
   if (!updatedCompany) {
     return res.status(404).json({
       status: false,
-      message: "Bank account not found",
+      message: "Payment method not found",
     });
   }
 
   res.status(200).json({
     status: true,
-    message: "Bank account updated successfully",
+    message: "Payment method updated successfully",
   });
 });
 
-exports.addCompanyBankQR = asyncHandler(async (req, res) => {
-  try {
-    const { name, accountNumber, qrCode } = req.body;
-    const { id } = req.params;
+exports.addCompanyPaymentMethod = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { method, bank, shamCash, usdt } = req.body;
 
-    if (!name || !accountNumber) {
-      return res.status(400).json({
-        message: "Name and account number are required",
-      });
-    }
-
-    if (!qrCode) {
-      return res.status(400).json({
-        message: "QR code image is required",
-      });
-    }
-
-    const company = await CompanyInfnoModel.findById(id);
-    if (!company) {
-      return res.status(404).json({ message: "Company not found" });
-    }
-
-    const exists = company.bankQR.some(
-      (b) => b.accountNumber === accountNumber
-    );
-
-    if (exists) {
-      return res.status(409).json({
-        message: "Bank account already exists",
-      });
-    }
-
-    const newBankQR = {
-      name,
-      accountNumber,
-      qrCode: qrCode || null,
-    };
-
-    company.bankQR.push(newBankQR);
-    await company.save();
-
-    res.status(201).json({
-      message: "Bank account added successfully",
-      data: newBankQR,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Error while adding bank account",
-    });
+  if (!method) {
+    return res.status(400).json({ message: "method is required" });
   }
+
+  const company = await CompanyInfnoModel.findById(id);
+  if (!company) {
+    return res.status(404).json({ message: "Company not found" });
+  }
+
+  const payload = { method };
+
+  if (method === "bank") payload.bank = bank;
+  if (method === "shamCash") payload.shamCash = shamCash;
+  if (method === "usdt") payload.usdt = usdt;
+
+  company.paymentMethods.push(payload);
+  await company.save();
+
+  res.status(201).json({
+    status: true,
+    message: "Payment method added successfully",
+    data: payload,
+  });
 });
