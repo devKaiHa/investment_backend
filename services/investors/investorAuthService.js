@@ -45,7 +45,6 @@ exports.investorRegister = asyncHandler(async (req, res, next) => {
 exports.investorLogin = asyncHandler(async (req, res, next) => {
   const { phone, password } = req.body;
 
-  // Auth
   const authUser = await AuthUser.findOne({ phone });
   if (!authUser) return next(new ApiError("No user found", 404));
 
@@ -58,13 +57,6 @@ exports.investorLogin = asyncHandler(async (req, res, next) => {
   //     return next(new ApiError("Already logged in", 403));
   // }
 
-  // Create session
-  const sessionId = crypto.randomUUID();
-  authUser.activeSessionId = sessionId;
-  authUser.sessionStartedAt = new Date();
-  await authUser.save();
-
-  // Load profile
   const investor = await investorModel.findOne({ authUserId: authUser._id });
   const applicant = !investor
     ? await Applicant.findOne({ authUserId: authUser._id })
@@ -74,40 +66,33 @@ exports.investorLogin = asyncHandler(async (req, res, next) => {
     return next(new ApiError("User profile not found", 500));
   }
 
-  // Sanitize auth user
-  const authUserSafe = authUser.toObject();
-  delete authUserSafe.password;
-  delete authUserSafe.activeSessionId;
-  delete authUserSafe.sessionStartedAt;
+  // APPLICANT
+  if (!investor) {
+    const sessionId = crypto.randomUUID();
+    authUser.activeSessionId = sessionId;
+    authUser.sessionStartedAt = new Date();
+    await authUser.save();
 
-  // Response
+    return res.status(200).json({
+      status: true,
+      token: signToken(authUser, sessionId),
+      profile: applicant,
+      requiresPin: false,
+    });
+  }
+
+  // INVESTOR
+  const challengeId = crypto.randomUUID();
+  authUser.loginChallengeId = challengeId;
+  authUser.challengeCreatedAt = new Date();
+  await authUser.save();
+
   res.status(200).json({
     status: true,
-    token: signToken(authUser, sessionId),
-    user: authUserSafe,
-    profile: investor || applicant,
+    requiresPin: true,
+    challengeId,
+    userId: authUser._id,
   });
-});
-
-exports.approveApplicant = asyncHandler(async (req, res) => {
-  const applicant = await Applicant.findById(req.params.id);
-
-  if (!applicant) return next(new ApiError("No user found", 404));
-
-  const investor = await investorModel.create({
-    authUserId: applicant.authUserId,
-    fullName: applicant.fullName,
-    latinName: applicant.latinName,
-    slug: applicant.slug,
-    email: applicant.email,
-    birthDate: applicant.birthDate,
-    attachments: applicant.attachments,
-    profileImage: applicant.profileImage,
-  });
-
-  await Applicant.deleteOne({ _id: applicant._id });
-
-  res.status(200).json({ message: "Approve success", data: investor });
 });
 
 exports.rejectApplicant = asyncHandler(async (req, res) => {
@@ -162,8 +147,45 @@ exports.investorLogout = asyncHandler(async (req, res) => {
   if (authUser) {
     authUser.activeSessionId = null;
     authUser.sessionStartedAt = null;
+    authUser.pinVerifiedAt = null;
     await authUser.save();
   }
 
   res.status(200).json({ message: "Logged out successfully" });
+});
+
+exports.verifyPin = asyncHandler(async (req, res, next) => {
+  const { userId, pin, challengeId } = req.body;
+
+  const authUser = await AuthUser.findById(userId).select("+pinCode");
+  if (!authUser) return next(new ApiError("User not found", 404));
+
+  if (authUser.loginChallengeId !== challengeId) {
+    return next(new ApiError("Invalid login challenge", 401));
+  }
+
+  const age = Date.now() - new Date(authUser.challengeCreatedAt).getTime();
+  if (age > 5 * 60 * 1000) {
+    return next(new ApiError("Login challenge expired", 401));
+  }
+
+  const isValid = await bcrypt.compare(pin, authUser.pinCode);
+  if (!isValid) return next(new ApiError("Invalid PIN", 401));
+
+  // Create session
+  const sessionId = crypto.randomUUID();
+  authUser.activeSessionId = sessionId;
+  authUser.sessionStartedAt = new Date();
+  authUser.loginChallengeId = null;
+  authUser.challengeCreatedAt = null;
+  await authUser.save();
+
+  const investor = await investorModel.findOne({
+    authUserId: authUser._id,
+  });
+
+  res.status(200).json({
+    token: signToken(authUser, sessionId),
+    profile: investor,
+  });
 });

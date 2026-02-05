@@ -9,6 +9,8 @@ const { v4: uuidv4 } = require("uuid");
 const investorModel = require("../../models/investorModel");
 const { default: mongoose } = require("mongoose");
 const { createNotification } = require("../utils/notificationService");
+const { generatePin, hashHelper, sendEmail } = require("../../utils/helpers");
+const authUserModel = require("../../models/auth/authUserModel");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -189,17 +191,16 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
       return next(new ApiError("No user found", 404));
     }
 
-    // Prevent double approval
     if (applicant.reviewStatus === "approved") {
       await session.abortTransaction();
       return next(new ApiError("Applicant already approved", 400));
     }
 
-    // Update applicant status
     applicant.reviewStatus = reviewStatus;
     applicant.rejectionReason = reviewStatus === "approved" ? null : msg;
-
     await applicant.save({ session });
+
+    // Rejected flow
     if (reviewStatus === "rejected") {
       await createNotification({
         user: applicant.authUserId,
@@ -207,42 +208,75 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
         title: "PROFILE_REJECTED",
         message: "PROFILE_REJECT_MSG",
       });
-    }
 
-    // Create investor only if approved
-    if (reviewStatus === "approved") {
-      const applicantObj = applicant.toObject();
+      await session.commitTransaction();
+      session.endSession();
 
-      const investorPayload = {
-        authUserId: applicantObj.authUserId,
-        fullName: applicantObj.fullName,
-        latinName: applicantObj.latinName,
-        slug: applicantObj.slug,
-        email: applicantObj.email,
-        phone: applicantObj.phone,
-        birthDate: applicantObj.birthDate,
-        idPhoto: applicantObj.idPhoto,
-        livePhoto: applicantObj.livePhoto,
-        profileImage: applicantObj.profileImage,
-        nationalId: applicantObj.idNumber,
-        passportId: applicantObj.passportNumber,
-        kycPayment: applicant.kycPayment,
-      };
-
-      await investorModel.create([investorPayload], { session });
-      await createNotification({
-        user: investorPayload.authUserId,
-        type: "success",
-        title: "PROFILE_APPROVED",
-        message: "PROFILE_APPROVE_MSG",
+      return res.status(200).json({
+        message: "Applicant rejected successfully",
       });
     }
+
+    // Approved flow
+    const pin = generatePin();
+    const hashedPin = await hashHelper(pin);
+
+    const applicantObj = applicant.toObject();
+
+    const investorPayload = {
+      authUserId: applicantObj.authUserId,
+      fullName: applicantObj.fullName,
+      latinName: applicantObj.latinName,
+      slug: applicantObj.slug,
+      email: applicantObj.email,
+      phone: applicantObj.phone,
+      birthDate: applicantObj.birthDate,
+      idPhoto: applicantObj.idPhoto,
+      livePhoto: applicantObj.livePhoto,
+      profileImage: applicantObj.profileImage,
+      nationalId: applicantObj.idNumber,
+      passportId: applicantObj.passportNumber,
+      kycPayment: applicantObj.kycPayment,
+    };
+
+    // Create investor
+    await investorModel.create([investorPayload], { session });
+
+    // Update auth user
+    await authUserModel.findByIdAndUpdate(
+      applicantObj.authUserId,
+      {
+        pinCode: hashedPin,
+        isInvestor: true,
+      },
+      { session },
+    );
+
+    // Email
+    await createNotification({
+      user: applicantObj.authUserId,
+      type: "success",
+      title: "PROFILE_APPROVED",
+      message: "PROFILE_APPROVE_MSG",
+    });
+
+    await sendEmail({
+      email: applicantObj.email,
+      subject: "‼️ IMPORTANT! READ THIS ‼️",
+      message: `
+Hello ${applicantObj.fullName},
+Welcome to Jadwa investment platform.
+Your private PIN code is: ${pin}
+Please store it safely and never share it with anyone.
+      `,
+    });
 
     await session.commitTransaction();
     session.endSession();
 
+    await Applicant.deleteOne({ _id: applicant._id });
     res.status(200).json({
-      message: "Status updated successfully",
+      message: "Applicant approved successfully",
     });
   } catch (error) {
     await session.abortTransaction();

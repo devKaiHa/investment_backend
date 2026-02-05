@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const bcrypt = require("bcrypt");
 
 exports.generatePassword = () => {
   const length = 8;
@@ -13,6 +14,24 @@ exports.generatePassword = () => {
   }
 
   return password;
+};
+
+/**
+ *
+ * @returns A 6 digits pin code
+ */
+exports.generatePin = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+/**
+ *
+ * @param {*} text The value to be hashed
+ * @returns Hashed value
+ */
+exports.hashHelper = async (text) => {
+  const salt = await bcrypt.genSalt(10);
+  return await bcrypt.hash(text, salt);
 };
 
 exports.isEmail = (email) => {
@@ -36,13 +55,13 @@ exports.createToken = (payload, sessionId) => {
   return jwt.sign(
     { userId: payload._id, email: payload.email, sessionId },
     process.env.JWT_SECRET_KEY,
-    { expiresIn: process.env.JWT_EXPIRE_TIME }
+    { expiresIn: process.env.JWT_EXPIRE_TIME },
   );
 };
 
 exports.sendEmail = async (options) => {
   try {
-    //1- Create transporter (service that'll send email like "gmail","Mailgun","Mialtrap",...)
+    //1- Create transporter
     const transporter = nodemailer.createTransport({
       service: "gmail",
       host: "smtp.gmail.com",
@@ -54,7 +73,7 @@ exports.sendEmail = async (options) => {
       },
     });
 
-    //2- Define email options (Like from, to, subject, email, email content)
+    //2- Define email options (from, to, subject, email, content)
     const mailOpts = {
       from: { name: "SmartPos <smartinb.co@gmail.com>" },
       to: options.email,
