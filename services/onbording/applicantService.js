@@ -262,7 +262,7 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
 
     await sendEmail({
       email: applicantObj.email,
-      subject: "‼️ IMPORTANT! READ THIS ‼️",
+      subject: "Jadwa Share Market | Account Confirmation",
       message: `
 Hello ${applicantObj.fullName},
 Welcome to Jadwa investment platform.

@@ -63,8 +63,7 @@ exports.sendEmail = async (options) => {
   try {
     //1- Create transporter
     const transporter = nodemailer.createTransport({
-      service: "gmail",
-      host: "smtp.gmail.com",
+      host: "mail.jadwainvest.com",
       port: 465, // if secure false port = 587, if true port = 465
       secure: true,
       auth: {
@@ -75,7 +74,7 @@ exports.sendEmail = async (options) => {
 
     //2- Define email options (from, to, subject, email, content)
     const mailOpts = {
-      from: { name: "SmartPos <smartinb.co@gmail.com>" },
+      from: { name: "Jadwa Share Market <noreply@jadwainvest.com>" },
       to: options.email,
       subject: options.subject,
       text: options.message,
