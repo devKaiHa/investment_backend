@@ -12,7 +12,8 @@ exports.login = asyncHandler(async (req, res, next) => {
   try {
     const user = await employeeModel
       .findOne({ email: req.body.email })
-      .select("+password");
+      .select("+password")
+      .populate("role");
 
     if (!user) {
       return next(new ApiError("No such user with that email", 401));
@@ -20,7 +21,7 @@ exports.login = asyncHandler(async (req, res, next) => {
 
     const passwordMatch = await bcrypt.compare(
       req.body.password,
-      user.password
+      user.password,
     );
     if (!passwordMatch) {
       return next(new ApiError("Incorrect password", 401));
