@@ -22,9 +22,13 @@ const emoloyeeShcema = new mongoose.Schema(
     passwordResetExpires: String,
     passwordResetVerified: Boolean,
     image: String,
+    role: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Roles",
+    },
     companyId: String,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Employee", emoloyeeShcema);
