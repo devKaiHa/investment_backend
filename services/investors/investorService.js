@@ -252,6 +252,7 @@ function buildPortfolioAverageCost(transactions, fundById) {
         ? {
             _id: fund._id,
             fullLegalName: fund.fullLegalName,
+            nameAr: fund.nameAr,
             code: fund.code,
             logo: fund.logo,
             sharePrice: fund.sharePrice,
@@ -295,8 +296,8 @@ function buildPortfolioAverageCost(transactions, fundById) {
  */
 exports.getInvestorPortfolio = asyncHandler(async (req, res, next) => {
   const { holderId } = req.params;
-  console.log(req.params);
-  console.log("holderId", req.params);
+
+  console.log("triigerd");
   if (!mongoose.isValidObjectId(holderId)) {
     return next(new ApiError("Invalid holderId", 400));
   }
@@ -334,7 +335,7 @@ exports.getInvestorPortfolio = asyncHandler(async (req, res, next) => {
   const assetIds = [...new Set(txs.map((t) => String(t.assetId)))];
 
   const funds = await InvestmentFund.find({ _id: { $in: assetIds } })
-    .select("fullLegalName code logo sharePrice active")
+    .select("fullLegalName nameAr code logo sharePrice active")
     .lean();
 
   const fundById = new Map(funds.map((f) => [String(f._id), f]));

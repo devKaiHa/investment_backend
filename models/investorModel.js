@@ -11,7 +11,6 @@ const investorSchema = new mongoose.Schema(
     fullName: String,
     nationalId: {
       type: String,
-      required: true,
       unique: true,
       index: true,
       trim: true,
@@ -63,7 +62,7 @@ const investorSchema = new mongoose.Schema(
     },
     role: { type: String, default: "investor" },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("investors", investorSchema);

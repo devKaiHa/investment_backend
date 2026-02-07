@@ -7,35 +7,36 @@ exports.getShareTransactions = asyncHandler(async (req, res) => {
     assetType,
     assetId,
 
-    // optional filters
     holderType,
     holderId,
     type,
     side,
 
-    // pagination/sort
     page = 1,
     limit = 20,
     sort = "-createdAt",
   } = req.query;
 
-  // -------- validations --------
-  if (!assetType || !assetId) {
+  /* ========= validations ========= */
+
+  if (!assetId && !holderId) {
     return res.status(400).json({
       status: false,
-      message: "assetType and assetId are required",
+      message: "Either assetId or holderId is required",
     });
   }
 
-  const allowedAssetTypes = ["ClientCompany", "InvestmentFund"];
-  if (!allowedAssetTypes.includes(assetType)) {
-    return res.status(400).json({
-      status: false,
-      message: `Invalid assetType. Allowed: ${allowedAssetTypes.join(", ")}`,
-    });
+  if (assetType) {
+    const allowedAssetTypes = ["ClientCompany", "InvestmentFund"];
+    if (!allowedAssetTypes.includes(assetType)) {
+      return res.status(400).json({
+        status: false,
+        message: `Invalid assetType. Allowed: ${allowedAssetTypes.join(", ")}`,
+      });
+    }
   }
 
-  if (!mongoose.Types.ObjectId.isValid(assetId)) {
+  if (assetId && !mongoose.Types.ObjectId.isValid(assetId)) {
     return res.status(400).json({
       status: false,
       message: "Invalid assetId",
@@ -49,20 +50,23 @@ exports.getShareTransactions = asyncHandler(async (req, res) => {
     });
   }
 
-  // -------- build query --------
-  const query = {
-    assetType,
-    assetId: new mongoose.Types.ObjectId(assetId),
-  };
+  /* ========= build query ========= */
+
+  const query = {};
+
+  if (assetType) query.assetType = assetType;
+  if (assetId) query.assetId = new mongoose.Types.ObjectId(assetId);
 
   if (holderType) query.holderType = holderType;
   if (holderId) query.holderId = new mongoose.Types.ObjectId(holderId);
+
   if (type) query.type = type;
   if (side) query.side = side;
 
   const skip = (Number(page) - 1) * Number(limit);
 
-  // -------- fetch --------
+  /* ========= fetch ========= */
+
   const [rows, total] = await Promise.all([
     ShareTransaction.find(query)
       .populate("holderId", "_id fullName fullLegalName")
@@ -73,7 +77,7 @@ exports.getShareTransactions = asyncHandler(async (req, res) => {
     ShareTransaction.countDocuments(query),
   ]);
 
-  return res.status(200).json({
+  res.status(200).json({
     status: true,
     message: "success",
     pagination: {

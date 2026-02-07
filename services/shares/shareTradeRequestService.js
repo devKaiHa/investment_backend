@@ -15,7 +15,7 @@ const upload = multer({
 });
 
 exports.uploadPaymentConfirmation = upload.single(
-  "paymentConfirmationDocument",
+  "paymentConfirmationDocument"
 );
 
 /**
@@ -51,13 +51,29 @@ exports.createTradeRequest = asyncHandler(async (req, res) => {
  * @access Private
  */
 exports.getInvestorTradeRequests = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, sort = "-createdAt" } = req.query;
-  const skip = (page - 1) * limit;
+  const {
+    page = 1,
+    limit = 10,
+    sort = "-createdAt",
+    status, // <-- NEW
+    excludeStatus, // <-- OPTIONAL
+  } = req.query;
+
+  const skip = (Number(page) - 1) * Number(limit);
 
   const query = {
     investor: req.params.id,
-    requestStatus: { $ne: "confirmed" },
   };
+
+  // ✅ Explicit status filter (highest priority)
+  if (status) {
+    query.requestStatus = status;
+  }
+
+  // ✅ Exclude status (used if status not provided)
+  if (!status && excludeStatus) {
+    query.requestStatus = { $ne: excludeStatus };
+  }
 
   const [data, total] = await Promise.all([
     ShareTradeRequest.find(query)
@@ -65,7 +81,6 @@ exports.getInvestorTradeRequests = asyncHandler(async (req, res) => {
       .skip(skip)
       .limit(Number(limit))
       .populate("source"),
-
     ShareTradeRequest.countDocuments(query),
   ]);
 
@@ -80,7 +95,6 @@ exports.getInvestorTradeRequests = asyncHandler(async (req, res) => {
     data,
   });
 });
-
 /**
  * @desc Get all trade requests (Admin)
  * @route GET /api/trade-requests
@@ -388,8 +402,9 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
     // IMPORTANT: send userId from client in body
     const performedByUserId = req.body.userId;
 
-    const request =
-      await ShareTradeRequest.findById(requestId).session(session);
+    const request = await ShareTradeRequest.findById(requestId).session(
+      session
+    );
     if (!request) {
       await session.abortTransaction();
       return res
@@ -475,7 +490,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         assetId,
       },
       { $setOnInsert: { shares: 0 } },
-      { upsert: true, session },
+      { upsert: true, session }
     );
 
     await sharesHolderModel.updateOne(
@@ -486,7 +501,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         assetId,
       },
       { $setOnInsert: { shares: 0 } },
-      { upsert: true, session },
+      { upsert: true, session }
     );
 
     /**
@@ -504,7 +519,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         shares: { $gte: qty },
       },
       { $inc: { shares: -qty } },
-      { session },
+      { session }
     );
 
     if (decRes.matchedCount === 0) {
@@ -517,7 +532,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
             assetType,
             assetId,
           },
-          { shares: 1 },
+          { shares: 1 }
         )
         .session(session);
 
@@ -541,7 +556,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
         assetId,
       },
       { $inc: { shares: qty } },
-      { session },
+      { session }
     );
 
     /**
@@ -574,7 +589,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
           note: "Confirmed trade - investor bought shares",
         },
       ],
-      { session },
+      { session }
     );
 
     const sellTx = txDocs[0];
@@ -605,7 +620,7 @@ exports.confirmTradeRequest = asyncHandler(async (req, res) => {
           note: req.body.note || "",
         },
       ],
-      { session },
+      { session }
     );
 
     await createNotification({
