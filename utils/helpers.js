@@ -55,7 +55,7 @@ exports.createToken = (payload, sessionId) => {
   return jwt.sign(
     { userId: payload._id, email: payload.email, sessionId },
     process.env.JWT_SECRET_KEY,
-    { expiresIn: process.env.JWT_EXPIRE_TIME },
+    { expiresIn: process.env.JWT_EXPIRE_TIME }
   );
 };
 
@@ -63,7 +63,8 @@ exports.sendEmail = async (options) => {
   try {
     //1- Create transporter
     const transporter = nodemailer.createTransport({
-      host: "mail.jadwainvest.com",
+      host: "smtp.gmail.com",
+      service: "gmail",
       port: 465, // if secure false port = 587, if true port = 465
       secure: true,
       auth: {
@@ -74,7 +75,7 @@ exports.sendEmail = async (options) => {
 
     //2- Define email options (from, to, subject, email, content)
     const mailOpts = {
-      from: { name: "Jadwa Share Market <noreply@jadwainvest.com>" },
+      from: { name: "Jadwa Share Market <smartinb.co@gmail.com>" },
       to: options.email,
       subject: options.subject,
       text: options.message,
