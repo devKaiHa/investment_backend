@@ -32,6 +32,7 @@ exports.login = asyncHandler(async (req, res, next) => {
     }
 
     user.password = undefined;
+    user.permission = "admin";
 
     const token = createToken(user);
     res.status(200).json({
@@ -63,7 +64,6 @@ exports.protect = asyncHandler(async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
       //3-Check if user exists
-
       const curentUser = await employeeModel.findOne({
         _id: decoded.userId,
       });

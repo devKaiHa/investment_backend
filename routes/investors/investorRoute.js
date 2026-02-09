@@ -17,6 +17,7 @@ const {
   investorLogout,
   protectInvestor,
   verifyPin,
+  investorLoginPinCode,
 } = require("../../services/investors/investorAuthService");
 
 const investorRoute = express.Router();
@@ -26,7 +27,7 @@ investorRoute
   .post(uploadInvestorImages, resizeInvestorImages, createInvestor)
   .get(getAllInvestors);
 
-investorRoute.route("/auth/login").post(investorLogin);
+investorRoute.route("/auth/login").post(investorLoginPinCode);
 investorRoute.route("/auth/register").post(investorRegister);
 investorRoute.route("/auth/logout/:id").post(investorLogout);
 investorRoute.route("/auth/verify").post(verifyPin);

@@ -13,17 +13,30 @@ const ApiError = require("../../utils/apiError");
 const SESSION_MAX_AGE = 1000 * 60 * 60 * 24;
 
 const signToken = (user, sessionId) =>
-  jwt.sign({ userId: user._id, sessionId }, process.env.JWT_SECRET_KEY);
+  jwt.sign(
+    {
+      userId: user._id,
+      sessionId,
+      permission: user.isInvestor ? "investor" : "applicant",
+    },
+    process.env.JWT_SECRET_KEY,
+    { expiresIn: 1 },
+  );
 
 exports.investorRegister = asyncHandler(async (req, res, next) => {
-  const { phone, password, fullName } = req.body;
+  const { phone, password, fullName, pinCode } = req.body;
 
   const exists = await AuthUser.findOne({ phone });
   if (exists) return next(new ApiError("Phone already registered", 400));
 
   const hashed = await bcrypt.hash(password, 12);
+  const hashedPin = await bcrypt.hash(pinCode, 12);
 
-  const user = await AuthUser.create({ phone, password: hashed });
+  const user = await AuthUser.create({
+    phone,
+    password: hashed,
+    pinCode: hashedPin,
+  });
 
   const profile = await Applicant.create({
     authUserId: user._id,
@@ -42,6 +55,48 @@ exports.investorRegister = asyncHandler(async (req, res, next) => {
   res.status(201).json({ profile, user, token, role: "applicant" });
 });
 
+exports.investorLoginPinCode = asyncHandler(async (req, res, next) => {
+  const { phone, pinCode } = req.body;
+
+  // Auth
+  const authUser = await AuthUser.findOne({ phone }).select("+pinCode");
+  if (!authUser) return next(new ApiError("No user found", 404));
+
+  const passMatch = await bcrypt.compare(pinCode, authUser.pinCode);
+  if (!passMatch) return next(new ApiError("Invalid credentials", 401));
+
+  // Create session
+  const sessionId = crypto.randomUUID();
+  authUser.activeSessionId = sessionId;
+  authUser.sessionStartedAt = new Date();
+  await authUser.save();
+
+  // Load profile
+  const investor = await investorModel.findOne({ authUserId: authUser._id });
+  const applicant = !investor
+    ? await Applicant.findOne({ authUserId: authUser._id })
+    : null;
+
+  if (!investor && !applicant) {
+    return next(new ApiError("User profile not found", 500));
+  }
+
+  // Sanitize auth user
+  const authUserSafe = authUser.toObject();
+  delete authUserSafe.password;
+  delete authUserSafe.activeSessionId;
+  delete authUserSafe.sessionStartedAt;
+
+  // Response
+  res.status(200).json({
+    status: true,
+    token: signToken(authUser, sessionId),
+    user: authUserSafe,
+    profile: investor || applicant,
+  });
+});
+
+// User login with password
 exports.investorLogin = asyncHandler(async (req, res, next) => {
   const { phone, password } = req.body;
 

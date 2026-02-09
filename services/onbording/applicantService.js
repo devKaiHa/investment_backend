@@ -218,8 +218,8 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
     }
 
     // Approved flow
-    const pin = generatePin();
-    const hashedPin = await hashHelper(pin);
+    // const pin = generatePin();
+    // const hashedPin = await hashHelper(pin);
 
     const applicantObj = applicant.toObject();
 
@@ -246,7 +246,7 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
     await authUserModel.findByIdAndUpdate(
       applicantObj.authUserId,
       {
-        pinCode: hashedPin,
+        // pinCode: hashedPin,
         isInvestor: true,
       },
       { session },
@@ -260,16 +260,16 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
       message: "PROFILE_APPROVE_MSG",
     });
 
-    await sendEmail({
-      email: applicantObj.email,
-      subject: "Jadwa Share Market | Account Confirmation",
-      message: `
-Hello ${applicantObj.fullName},
-Welcome to Jadwa investment platform.
-Your private PIN code is: ${pin}
-Please store it safely and never share it with anyone.
-      `,
-    });
+    //     await sendEmail({
+    //       email: applicantObj.email,
+    //       subject: "Jadwa Share Market | Account Confirmation",
+    //       message: `
+    // Hello ${applicantObj.fullName},
+    // Welcome to Jadwa investment platform.
+    // Your private PIN code is: ${pin}
+    // Please store it safely and never share it with anyone.
+    //       `,
+    //     });
 
     await session.commitTransaction();
     session.endSession();
