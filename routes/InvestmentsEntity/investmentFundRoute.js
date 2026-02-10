@@ -12,7 +12,7 @@ const {
 const {
   protectAuth,
   requireEmployee,
-  allowInvestorOrEmployee,
+  allowAnyAuthenticated,
 } = require("../../middlewares/protectAuth");
 
 const investmentFundRoute = express.Router();
@@ -21,11 +21,11 @@ investmentFundRoute.use(protectAuth);
 investmentFundRoute
   .route("/")
   .post(requireEmployee, uploadFundLogo, processFundLogo, createInvestmentFund)
-  .get(allowInvestorOrEmployee, getAllInvestmentFunds);
+  .get(allowAnyAuthenticated, getAllInvestmentFunds);
 
 investmentFundRoute
   .route("/:id")
-  .get(allowInvestorOrEmployee, getOneInvestmentFund)
+  .get(allowAnyAuthenticated, getOneInvestmentFund)
   .put(requireEmployee, authService.protect, updateInvestmentFund);
 
 module.exports = investmentFundRoute;

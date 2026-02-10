@@ -128,3 +128,11 @@ exports.allowInvestorOrEmployee = asyncHandler(async (req, res, next) => {
 
   return next(new ApiError("Access denied", 403));
 });
+
+exports.allowAnyAuthenticated = (req, res, next) => {
+  if (req.userType === "authUser" || req.userType === "employee") {
+    return next();
+  }
+
+  return next(new ApiError("Not authenticated", 401));
+};

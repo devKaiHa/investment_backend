@@ -6,8 +6,8 @@ const {
 } = require("../../services/InvestmentsEntity/InvestmentsEntityService");
 const {
   requireEmployee,
-  allowInvestorOrEmployee,
   protectAuth,
+  allowAnyAuthenticated,
 } = require("../../middlewares/protectAuth");
 
 const InvestmentsEntitySharedRoute = express.Router();
@@ -19,7 +19,7 @@ InvestmentsEntitySharedRoute.route("/").get(
 );
 
 InvestmentsEntitySharedRoute.route("/entities").get(
-  allowInvestorOrEmployee,
+  allowAnyAuthenticated,
   getAllInvestmentEntities,
 );
 

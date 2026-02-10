@@ -14,6 +14,7 @@ const {
 const {
   protectAuth,
   requireEmployee,
+  allowAnyAuthenticated,
 } = require("../../middlewares/protectAuth");
 
 const clientCompanyRoute = express.Router();
@@ -27,7 +28,7 @@ clientCompanyRoute
     processClientCompanyFiles,
     createClientCompany,
   )
-  .get(getAllClientCompanies);
+  .get(allowAnyAuthenticated, getAllClientCompanies);
 
 clientCompanyRoute.route("/request").get(requireEmployee, getAllClientRequests);
 
@@ -41,7 +42,9 @@ clientCompanyRoute
     updateClientCompany,
   );
 
-clientCompanyRoute.route("/company/:id").get(getOneCompany);
+clientCompanyRoute
+  .route("/company/:id")
+  .get(allowAnyAuthenticated, getOneCompany);
 
 clientCompanyRoute
   .route("/:id/status")

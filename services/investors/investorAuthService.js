@@ -50,7 +50,7 @@ exports.investorRegister = asyncHandler(async (req, res, next) => {
   user.sessionStartedAt = new Date();
   await user.save();
 
-  const token = signToken(profile, sessionId);
+  const token = signToken(user, sessionId);
 
   res.status(201).json({ profile, user, token, role: "applicant" });
 });
