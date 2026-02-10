@@ -11,35 +11,44 @@ const {
   deleteCompanyBank,
   updateCompanyBank,
 } = require("../../services/investmentCompaniesService");
+const {
+  protectAuth,
+  requireEmployee,
+  allowInvestorOrEmployee,
+} = require("../../middlewares/protectAuth");
 
 const investmentCompaniesRoute = express.Router();
+investmentCompaniesRoute.use(protectAuth);
 
 investmentCompaniesRoute
   .route("/")
   .post(
+    requireEmployee,
     uploadInvestmentCompaniesImage,
     resizeInvestmentCompaniesImages,
-    createInvestmentCompanies
+    createInvestmentCompanies,
   )
-  .get(getAllInvestmentCompaniess);
+  .get(allowInvestorOrEmployee, getAllInvestmentCompaniess);
 
 investmentCompaniesRoute
   .route("/:id/bank-qr/:bankQRId")
   .put(
+    requireEmployee,
     uploadInvestmentCompaniesImages,
     resizeInvestmentCompaniesImages,
-    updateCompanyBank
+    updateCompanyBank,
   )
-  .delete(deleteCompanyBank);
+  .delete(requireEmployee, deleteCompanyBank);
 
 investmentCompaniesRoute
   .route("/:id")
   .put(
+    requireEmployee,
     uploadInvestmentCompaniesImages,
     resizeInvestmentCompaniesImages,
-    updateInvestmentCompanies
+    updateInvestmentCompanies,
   )
-  .get(getOneInvestmentCompanies)
-  .delete(deleteInvestmentCompanies);
+  .get(allowInvestorOrEmployee, getOneInvestmentCompanies)
+  .delete(requireEmployee, deleteInvestmentCompanies);
 
 module.exports = investmentCompaniesRoute;

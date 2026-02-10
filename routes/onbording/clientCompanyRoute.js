@@ -11,41 +11,43 @@ const {
   getOneCompany,
   updateInvestInfo,
 } = require("../../services/InvestmentsEntity/clientCompanyService");
-const authService = require("../../services/auth/authService");
+const {
+  protectAuth,
+  requireEmployee,
+} = require("../../middlewares/protectAuth");
 
 const clientCompanyRoute = express.Router();
+clientCompanyRoute.use(protectAuth);
 
 clientCompanyRoute
   .route("/")
   .post(
-    authService.protect,
+    requireEmployee,
     uploadClientCompanyFiles,
     processClientCompanyFiles,
-    createClientCompany
+    createClientCompany,
   )
   .get(getAllClientCompanies);
 
-clientCompanyRoute
-  .route("/request")
-  .get(authService.protect, getAllClientRequests);
+clientCompanyRoute.route("/request").get(requireEmployee, getAllClientRequests);
 
 clientCompanyRoute
   .route("/:id")
   .get(getOneClientCompany)
   .put(
-    authService.protect,
+    requireEmployee,
     uploadClientCompanyFiles,
     processClientCompanyFiles,
-    updateClientCompany
+    updateClientCompany,
   );
 
 clientCompanyRoute.route("/company/:id").get(getOneCompany);
 
 clientCompanyRoute
   .route("/:id/status")
-  .patch(authService.protect, clientCompanyStatus);
+  .patch(requireEmployee, clientCompanyStatus);
 clientCompanyRoute
   .route("/:id/investInfo")
-  .patch(authService.protect, updateInvestInfo);
+  .patch(requireEmployee, updateInvestInfo);
 
 module.exports = clientCompanyRoute;

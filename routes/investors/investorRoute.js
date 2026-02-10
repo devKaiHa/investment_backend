@@ -15,29 +15,48 @@ const {
   investorLogin,
   investorRegister,
   investorLogout,
-  protectInvestor,
   verifyPin,
   investorLoginPinCode,
 } = require("../../services/investors/investorAuthService");
+const {
+  protectAuth,
+  requireEmployee,
+  requireInvestor,
+  allowInvestorOrEmployee,
+} = require("../../middlewares/protectAuth");
 
 const investorRoute = express.Router();
 
 investorRoute
   .route("/")
-  .post(uploadInvestorImages, resizeInvestorImages, createInvestor)
-  .get(getAllInvestors);
+  .post(
+    protectAuth,
+    requireEmployee,
+    uploadInvestorImages,
+    resizeInvestorImages,
+    createInvestor,
+  )
+  .get(protectAuth, requireEmployee, getAllInvestors);
 
 investorRoute.route("/auth/login").post(investorLoginPinCode);
 investorRoute.route("/auth/register").post(investorRegister);
-investorRoute.route("/auth/logout/:id").post(investorLogout);
+investorRoute.route("/auth/logout/:id").post(requireInvestor, investorLogout);
 investorRoute.route("/auth/verify").post(verifyPin);
 
 investorRoute
   .route("/:id")
-  .put(uploadInvestorImagesDisk, processInvestorFiles, updateInvestor)
-  .get(getOneInvestor)
-  .delete(deleteInvestor);
+  .put(
+    protectAuth,
+    requireInvestor,
+    uploadInvestorImagesDisk,
+    processInvestorFiles,
+    updateInvestor,
+  )
+  .get(protectAuth, allowInvestorOrEmployee, getOneInvestor)
+  .delete(protectAuth, requireEmployee, deleteInvestor);
 
-investorRoute.route("/portfolio/:holderId").get(getInvestorPortfolio);
+investorRoute
+  .route("/portfolio/:holderId")
+  .get(protectAuth, allowInvestorOrEmployee, getInvestorPortfolio);
 
 module.exports = investorRoute;

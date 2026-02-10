@@ -20,7 +20,7 @@ const signToken = (user, sessionId) =>
       permission: user.isInvestor ? "investor" : "applicant",
     },
     process.env.JWT_SECRET_KEY,
-    { expiresIn: 1 },
+    { expiresIn: "1d" },
   );
 
 exports.investorRegister = asyncHandler(async (req, res, next) => {

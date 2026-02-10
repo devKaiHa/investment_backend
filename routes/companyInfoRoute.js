@@ -13,7 +13,9 @@ const {
 } = require("../services/companyInfoService");
 
 const authService = require("../services/auth/authService");
+const { protectAuth, requireEmployee } = require("../middlewares/protectAuth");
 const companyInfoRoute = express.Router();
+companyInfoRoute.use(protectAuth, requireEmployee);
 
 companyInfoRoute
   .route("/")

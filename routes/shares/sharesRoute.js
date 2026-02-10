@@ -6,11 +6,21 @@ const {
 const {
   getShareTransactions,
 } = require("../../services/shares/shareTransactionService");
+const {
+  protectAuth,
+  allowInvestorOrEmployee,
+  requireEmployee,
+} = require("../../middlewares/protectAuth");
 
 const sharesRoute = express.Router();
+sharesRoute.use(protectAuth);
 
-sharesRoute.route("/transactions").get(getShareTransactions);
-sharesRoute.route("/holding").get(getSharesHoldings);
-sharesRoute.route("/sharesSummary").get(getHolderPortfolioSummary);
+sharesRoute
+  .route("/transactions")
+  .get(allowInvestorOrEmployee, getShareTransactions);
+sharesRoute.route("/holding").get(requireEmployee, getSharesHoldings);
+sharesRoute
+  .route("/sharesSummary")
+  .get(allowInvestorOrEmployee, getHolderPortfolioSummary);
 
 module.exports = sharesRoute;

@@ -9,22 +9,23 @@ const {
   processFundLogo,
   uploadFundLogo,
 } = require("../../services/InvestmentsEntity/investmentFundServices");
+const {
+  protectAuth,
+  requireEmployee,
+  allowInvestorOrEmployee,
+} = require("../../middlewares/protectAuth");
 
 const investmentFundRoute = express.Router();
+investmentFundRoute.use(protectAuth);
 
 investmentFundRoute
   .route("/")
-  .post(
-    authService.protect,
-    uploadFundLogo,
-    processFundLogo,
-    createInvestmentFund
-  )
-  .get(getAllInvestmentFunds);
+  .post(requireEmployee, uploadFundLogo, processFundLogo, createInvestmentFund)
+  .get(allowInvestorOrEmployee, getAllInvestmentFunds);
 
 investmentFundRoute
   .route("/:id")
-  .get(getOneInvestmentFund)
-  .put(authService.protect, updateInvestmentFund);
+  .get(allowInvestorOrEmployee, getOneInvestmentFund)
+  .put(requireEmployee, authService.protect, updateInvestmentFund);
 
 module.exports = investmentFundRoute;
