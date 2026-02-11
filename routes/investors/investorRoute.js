@@ -47,7 +47,6 @@ investorRoute
   .route("/:id")
   .put(
     protectAuth,
-    requireInvestor,
     uploadInvestorImagesDisk,
     processInvestorFiles,
     updateInvestor,
