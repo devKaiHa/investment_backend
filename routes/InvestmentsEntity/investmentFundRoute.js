@@ -1,6 +1,5 @@
 const express = require("express");
 
-const authService = require("../../services/auth/authService");
 const {
   createInvestmentFund,
   getAllInvestmentFunds,
@@ -26,6 +25,6 @@ investmentFundRoute
 investmentFundRoute
   .route("/:id")
   .get(allowAnyAuthenticated, getOneInvestmentFund)
-  .put(requireEmployee, authService.protect, updateInvestmentFund);
+  .put(requireEmployee, uploadFundLogo, processFundLogo, updateInvestmentFund);
 
 module.exports = investmentFundRoute;

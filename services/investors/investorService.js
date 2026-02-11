@@ -56,7 +56,7 @@ exports.resizeInvestorImages = asyncHandler(async (req, res, next) => {
           fileUrl: filename,
         });
       }
-    })
+    }),
   );
 
   next();
@@ -531,8 +531,8 @@ const storageDisk = multer.diskStorage({
     const ext = file.mimetype.startsWith("image/")
       ? ".webp"
       : file.mimetype === "application/pdf"
-      ? ".pdf"
-      : "";
+        ? ".pdf"
+        : "";
 
     const safeFieldname = file.fieldname.replace(/[^a-zA-Z0-9_-]/g, "_");
     const filename = `Investor-${uuidv4()}-${Date.now()}-${safeFieldname}${ext}`;
@@ -630,7 +630,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
             }
           }
           return shouldKeep;
-        }
+        },
       );
     }
 
@@ -648,7 +648,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           if (existingInvestor.profileImage) {
             try {
               fs.unlinkSync(
-                path.join("uploads/Investor", existingInvestor.profileImage)
+                path.join("uploads/Investor", existingInvestor.profileImage),
               );
             } catch (err) {
               console.warn("Failed to delete old profile image:", err.message);
@@ -657,7 +657,7 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
           existingInvestor.profileImage = file.filename;
         } else {
           const index = existingInvestor.attachments.findIndex(
-            (att) => att.key === key
+            (att) => att.key === key,
           );
           const newFile = { key, fileUrl: file.filename };
 
@@ -667,8 +667,8 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
               fs.unlinkSync(
                 path.join(
                   "uploads/Investor",
-                  existingInvestor.attachments[index].fileUrl
-                )
+                  existingInvestor.attachments[index].fileUrl,
+                ),
               );
             } catch (err) {
               console.warn("Failed to delete old attachment:", err.message);
@@ -683,15 +683,9 @@ exports.updateInvestor = asyncHandler(async (req, res, next) => {
 
     await authUserModel.findOneAndUpdate(
       { _id: req.params.id },
-      { phone: req.body.phone }
+      { phone: req.body.phone },
     );
     const updatedInvestor = await existingInvestor.save();
-    await createNotification({
-      user: updatedInvestor.authUserId,
-      type: "success",
-      title: "PROFILE_UPDATED",
-      message: "PROFILE_UPDATE_MSG",
-    });
 
     res.status(200).json({
       status: true,

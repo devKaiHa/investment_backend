@@ -174,7 +174,7 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
           shareIssued: true,
         },
       ],
-      { session }
+      { session },
     );
 
     // =====================
@@ -188,7 +188,7 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
         assetId: fund._id,
       },
       { $set: { shares } },
-      { upsert: true, session }
+      { upsert: true, session },
     );
 
     // =====================
@@ -209,7 +209,7 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
           note: "Initial issuance to fund treasury on fund creation",
         },
       ],
-      { session }
+      { session },
     );
 
     // =====================
@@ -238,7 +238,7 @@ exports.createInvestmentFund = asyncHandler(async (req, res) => {
           },
         },
       ],
-      { session }
+      { session },
     );
 
     await session.commitTransaction();
@@ -368,6 +368,39 @@ exports.updateInvestmentFund = asyncHandler(async (req, res) => {
       }
     }
 
+    const fields = ["fullLegalName", "nameAr", "active"];
+
+    fields.forEach((field) => {
+      if (req.body[field] !== undefined && fund[field] !== req.body[field]) {
+        changes.push({
+          field,
+          before: String(fund[field] ?? ""),
+          after: String(req.body[field]),
+        });
+        fund[field] = req.body[field];
+      }
+    });
+
+    if (req.body.logo) {
+      if (fund.logo && fund.logo !== req.body.logo) {
+        try {
+          await fs.promises.unlink(
+            path.join("uploads/InvestmentFunds", fund.logo),
+          );
+        } catch (err) {
+          console.log("Failed to delete old fund logo:", err.message);
+        }
+
+        changes.push({
+          field: "logo",
+          before: fund.logo,
+          after: req.body.logo,
+        });
+
+        fund.logo = req.body.logo;
+      }
+    }
+
     // Nothing changed => no log
     if (changes.length === 0) {
       await session.commitTransaction();
@@ -396,7 +429,7 @@ exports.updateInvestmentFund = asyncHandler(async (req, res) => {
           },
         },
       ],
-      { session }
+      { session },
     );
 
     await session.commitTransaction();

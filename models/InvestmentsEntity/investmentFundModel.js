@@ -17,7 +17,7 @@ const investmentFundSchema = new mongoose.Schema(
       required: true,
       trim: true,
       uppercase: true,
-      unique: true, // recommended
+      unique: true,
       index: true,
     },
 
@@ -60,7 +60,7 @@ const investmentFundSchema = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("InvestmentFund", investmentFundSchema);
