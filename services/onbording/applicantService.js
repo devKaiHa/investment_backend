@@ -274,7 +274,6 @@ exports.updateApplicantStatus = asyncHandler(async (req, res, next) => {
     await session.commitTransaction();
     session.endSession();
 
-    await Applicant.deleteOne({ _id: applicant._id });
     res.status(200).json({
       message: "Applicant approved successfully",
     });
