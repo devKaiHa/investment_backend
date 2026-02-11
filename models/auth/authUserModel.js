@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const authUserSchema = new mongoose.Schema(
   {
     phone: { type: String, unique: true },
+    countryCode: { type: String, uppercase: true },
     password: String,
     active: { type: Boolean, default: true },
     pinCode: { type: String, default: null, select: false },
@@ -13,7 +14,7 @@ const authUserSchema = new mongoose.Schema(
     activeSessionId: { type: String, default: null },
     sessionStartedAt: { type: Date, default: null },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("authUser", authUserSchema);

@@ -25,6 +25,7 @@ const investorSchema = new mongoose.Schema(
     slug: { type: String, lowercase: true },
     email: String,
     phone: String,
+    countryCode: { type: String, uppercase: true },
     birthDate: String,
     ibanNumbers: [
       {

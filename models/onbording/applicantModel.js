@@ -12,11 +12,8 @@ const applicantSchema = new mongoose.Schema(
     latinName: String,
     slug: { type: String, lowercase: true },
     email: String,
-    country: {
-      type: String,
-      uppercase: true,
-    },
     phone: String,
+    countryCode: { type: String, uppercase: true },
     birthDate: String,
 
     reviewStatus: {
@@ -65,7 +62,7 @@ const applicantSchema = new mongoose.Schema(
 
     deletable: { type: Boolean, default: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("applicant", applicantSchema);
