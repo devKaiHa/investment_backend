@@ -12,6 +12,7 @@ const notificationRoute = require("./utils/notificationRoute");
 const profileRoute = require("./utils/profileRoute");
 const roleRoute = require("./roleRoute");
 const reportsRoute = require("./reports/reportsRoute");
+const employeeRoute = require("./employeeRoute");
 
 const mountRoutes = (app) => {
   app.use("/api/auth", authRoute);
@@ -35,6 +36,8 @@ const mountRoutes = (app) => {
 
   // Reports
   app.use("/api/reports", reportsRoute);
+
+  app.use("/api/employee", employeeRoute);
 };
 
 module.exports = mountRoutes;

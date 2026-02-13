@@ -1,34 +1,33 @@
 const mongoose = require("mongoose");
 
-const emoloyeeShcema = new mongoose.Schema(
+const employeeSchema = new mongoose.Schema(
   {
-    name: String,
+    name: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
+    },
     email: {
       type: String,
+      required: [true, "Email is required"],
       lowercase: true,
-    },
-    active: {
-      type: Boolean,
-      default: true,
+      unique: true,
+      trim: true,
     },
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: 4,
+      minlength: 6,
       select: false,
     },
-    passwordChangedAt: String,
-    passwordResetCode: String,
-    passwordResetExpires: String,
-    passwordResetVerified: Boolean,
-    image: String,
+    passwordChangedAt: { type: Date },
+    active: { type: Boolean, default: true },
     role: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Roles",
     },
-    companyId: String,
   },
   { timestamps: true },
 );
 
-module.exports = mongoose.model("Employee", emoloyeeShcema);
+module.exports = mongoose.model("Employee", employeeSchema);
