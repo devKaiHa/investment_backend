@@ -120,6 +120,14 @@ exports.updateEmployeePassword = asyncHandler(async (req, res) => {
 // @access Private
 exports.updateEmployee = asyncHandler(async (req, res, next) => {
   const id = req.params.id;
+  const { email, name, role } = req.body;
+
+  if (req.body.password) {
+    return res.status(400).json({
+      status: false,
+      message: "Password cannot be updated here",
+    });
+  }
 
   if (!id) {
     return res.status(400).json({
@@ -128,9 +136,13 @@ exports.updateEmployee = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const employee = await employeeModel.findByIdAndUpdate(id, req.body, {
-    new: true,
-  });
+  const employee = await employeeModel.findByIdAndUpdate(
+    id,
+    { name, email, role },
+    {
+      new: true,
+    },
+  );
 
   if (!employee) {
     return res.status(404).json({
